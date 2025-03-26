@@ -90,6 +90,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             // doit later lmao
         }
 
+        [ContextMenu("Extrude Selection (Debug)")]
         public void ExtrudeSelection()
         {
             foreach (GameObject g in Selection.gameObjects)
@@ -102,7 +103,8 @@ namespace EvroDev.BacklotUtilities.Voxels
             }
             RegenGizmo();
         }
-
+        
+        [ContextMenu("Intrude Selection (Debug)")]
         public void IntrudeSelection()
         {
             foreach (GameObject g in Selection.gameObjects)
