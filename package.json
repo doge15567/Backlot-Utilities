@@ -1,0 +1,19 @@
+{
+    "name": "com.evrodev.backlot.utilities",
+    "version": "1.2.0",
+    "displayName": "Backlot Utilities",
+    "description": "Powerful Utilities to improve construction with the Marrow Backlot",
+    "unity": "2021.3",
+    "keywords": [
+      "evrodev",
+      "backlot",
+      "marrow"
+    ],
+    "author": {
+      "name": "EvroDev",
+      "email": "evro@evrodev.com",
+      "url": "http://www.evrodev.com/"
+    },
+    "unityRelease": "16f1",
+    "hideInEditor": false
+  }
