@@ -22,7 +22,7 @@ namespace EvroDev.BacklotUtilities.Voxels
 
         void OnDrawGizmos()
         {
-            Vector3 centerPos = transform.position + voxelPosition;
+            Vector3 centerPos = transform.position + voxelPosition + (Vector3.one/2);
             Vector3 scale = Vector3.one;
             if(FaceDirection == FaceDirection.Up)
             {
@@ -55,8 +55,49 @@ namespace EvroDev.BacklotUtilities.Voxels
                 scale = new Vector3(0.01f, 0.9f, 0.9f);
             }
 
+            Gizmos.color = new Color(1, 1, 1, 0.1f);
+            Gizmos.DrawCube(centerPos, scale);
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            Vector3 centerPos = transform.position + voxelPosition + (Vector3.one / 2);
+            Vector3 scale = Vector3.one;
+            if (FaceDirection == FaceDirection.Up)
+            {
+                centerPos += new Vector3(0, 0.5f, 0);
+                scale = new Vector3(0.9f, 0.01f, 0.9f);
+            }
+            else if (FaceDirection == FaceDirection.Down)
+            {
+                centerPos += new Vector3(0, -0.5f, 0);
+                scale = new Vector3(0.9f, 0.01f, 0.9f);
+            }
+            else if (FaceDirection == FaceDirection.Forward)
+            {
+                centerPos += new Vector3(0, 0, 0.5f);
+                scale = new Vector3(0.9f, 0.9f, 0.01f);
+            }
+            else if (FaceDirection == FaceDirection.Backward)
+            {
+                centerPos += new Vector3(0, 0, -0.5f);
+                scale = new Vector3(0.9f, 0.9f, 0.01f);
+            }
+            else if (FaceDirection == FaceDirection.Right)
+            {
+                centerPos += new Vector3(0.5f, 0, 0);
+                scale = new Vector3(0.01f, 0.9f, 0.9f);
+            }
+            else if (FaceDirection == FaceDirection.Left)
+            {
+                centerPos += new Vector3(-0.5f, 0, 0);
+                scale = new Vector3(0.01f, 0.9f, 0.9f);
+            }
+
             Gizmos.color = new Color(1, 1, 1, 0.3f);
             Gizmos.DrawCube(centerPos, scale);
+            Gizmos.color = new Color(1, 1, 1, 0.5f);
+            Gizmos.DrawWireCube(centerPos, scale);
         }
 
         public Vector3Int GetTargetAir()
@@ -88,11 +129,21 @@ namespace EvroDev.BacklotUtilities.Voxels
             return voxelPosition;
         }
 
-        public static SelectableFace Create(BacklotVoxelChunk chunk, int x, int y, int z, FaceDirection direction, Voxel voxel)
+        public static SelectableFace Create(Transform parent, int x, int y, int z, FaceDirection direction, Voxel voxel)
         {
-            voxelPosition = new Vector3Int(x,y,z);
-            FaceDirection = direction;
-            material = voxel.materials[direction];
+            GameObject go = new GameObject("VoxelFace");
+            SelectableFace outpt = go.AddComponent<SelectableFace>();
+            go.transform.SetParent(parent);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+
+            outpt.voxelPosition = new Vector3Int(x,y,z);
+            outpt.FaceDirection = direction;
+
+            if(voxel.materials.ContainsKey(direction))
+                outpt.material = voxel.materials[direction];
+
+            return outpt;
         }
     }
 }
