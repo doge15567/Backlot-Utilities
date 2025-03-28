@@ -106,7 +106,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                         if(thisVoxel == null || thisVoxel.IsEmpty) continue;
 
 
-                        if(SafeSampleVoxel(x,y+1,z).IsEmpty) // if up is air,.,,,
+                        if(SafeSampleVoxel(x,y+1,z).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Up, thisVoxel);
                         }
@@ -141,6 +141,8 @@ namespace EvroDev.BacklotUtilities.Voxels
         void GenerateBacklots()
         {
             // Build a list of Backlot Instances, with things like position, scale, material etc
+
+            //Makes an array to store 
             int[] axis_cols = new int[ChunkSizeP2 * 3];
             List<int> col_face_masks = new List<int>();
             
@@ -162,16 +164,21 @@ namespace EvroDev.BacklotUtilities.Voxels
                 }
             }
 
+            // For every main axis
             for(int axis = 0; axis < 3; axis++)
             {
                 for(int i = 0; i < ChunkSizeP2; i++)
                 {
+
                     int col = axis_cols[(ChunkSizeP2 * axis) + i];
                     col_face_masks[(ChunkSizeP2 * (axis * 2 + 1)) + i] = col & !(col >> 1);
                     col_face_masks[(ChunkSizeP2 * (axis * 2 + 0)) + i] = col & !(col << 1);
                 }
             }
 
+            //List<int[]> // guh i need to store many different face masks in here based on per material or something///
+
+            // For each of the 6 directions
             for(int axis2 = 0; axis2 < 6; axis2++)
             {
                 for(int z = 0; z < ChunkSize; z++)
@@ -180,6 +187,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                     {
                         int col_index = 1 + x + ((z+1) * ChunkSizeP) + ChunkSizeP2 * axis2;
 
+                        // i believe that this col represents the "up" faces and stuff
                         int col = col_face_masks[col_index] >> 1;
                         col = col & !(1 << ChunkSize);
 
