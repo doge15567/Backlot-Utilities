@@ -1,6 +1,8 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting.YamlDotNet.Core.Tokens;
+
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -11,11 +13,12 @@ namespace EvroDev.BacklotUtilities.Voxels
     public class BacklotVoxelChunk : MonoBehaviour
     {
         public int ChunkSize = 32;
-        int ChunkSizeP = ChunkSize + 2;
-        int ChunkSizeP2 = ChunkSizeP * ChunkSizeP;
+        int ChunkSizeP => ChunkSize + 2;
+        int ChunkSizeP2 => ChunkSizeP * ChunkSizeP;
         public Voxel[] voxels;
 
         private Transform tempGizmosParent;
+        private Transform backlotsParent;
         private List<SelectableFace> gizmoFaces;
 
 
@@ -23,15 +26,24 @@ namespace EvroDev.BacklotUtilities.Voxels
         {
             if(x < 0 || x >= ChunkSize)
             {
-                return null;
+                return new Voxel()
+                {
+                    IsEmpty = true
+                };
             }
             if(y < 0 || y >= ChunkSize)
             {
-                return null;
+                return new Voxel()
+                {
+                    IsEmpty = true
+                };
             }
             if(z < 0 || z >= ChunkSize)
             {
-                return null;
+                return new Voxel()
+                {
+                    IsEmpty = true
+                };
             }
 
 
@@ -76,12 +88,13 @@ namespace EvroDev.BacklotUtilities.Voxels
             RegenGizmo();
         }
 
-
+        [ContextMenu("Regen Gizmos")]
         void RegenGizmo()
         {
             if(tempGizmosParent == null)
             {
                 GameObject gizmoParent = new GameObject("TEMP Gizmo Parent");
+                gizmoParent.hideFlags = HideFlags.HideInHierarchy;
                 gizmoParent.transform.parent = transform;
                 gizmoParent.transform.localPosition = Vector3.zero;
                 tempGizmosParent = gizmoParent.transform;
@@ -135,18 +148,34 @@ namespace EvroDev.BacklotUtilities.Voxels
             }
         }
 
+        [ContextMenu("Set Material to Selected")]
+        void SetWithSelectedMaterial()
+        {
+#if UNITY_EDITOR
+            foreach (Object g in Selection.objects)
+            {
+                if (g is Material)
+                {
+                    PaintSelection(g as Material);
+                    break;
+                }
+            }
+            RegenGizmo();
+#endif
+        }
 
 
 
+        [ContextMenu("Generate Backlot")]
         void GenerateBacklots()
         {
             // Build a list of Backlot Instances, with things like position, scale, material etc
 
             //Makes an array to store 
-            int[] axis_cols = new int[ChunkSizeP2 * 3];
-            List<int> col_face_masks = new List<int>();
-            
-            for(int y = 0; y < ChunkSize; y++)
+            ulong[,,] axis_cols = new ulong[3,ChunkSizeP,ChunkSizeP];
+            ulong[,,] col_face_masks = new ulong[6,ChunkSizeP,ChunkSizeP];
+
+            for (int y = 0; y < ChunkSize; y++)
             {
                 for(int z = 0; z < ChunkSize; z++)
                 {
@@ -156,9 +185,9 @@ namespace EvroDev.BacklotUtilities.Voxels
                         Voxel b = SafeSampleVoxel(x, y, z);
                         if(!b.IsEmpty)
                         {
-                            axis_cols[x + (z * ChunkSizeP)] |= 1 << y;
-                            axis_cols[z + (y * ChunkSizeP) + ChunkSizeP2] |= 1 << x;
-                            axis_cols[y + (x * ChunkSizeP) + ChunkSizeP2*2] |= 1 << z;
+                            axis_cols[0,z+1,x+1] |= 1ul << (y+1);
+                            axis_cols[1,y+1,z+1] |= 1ul << (x+1);
+                            axis_cols[2,y+1,x+1] |= 1ul << (z+1);
                         }
                     }
                 }
@@ -167,19 +196,29 @@ namespace EvroDev.BacklotUtilities.Voxels
             // For every main axis
             for(int axis = 0; axis < 3; axis++)
             {
-                for(int i = 0; i < ChunkSizeP2; i++)
+                for(int x = 0; x < ChunkSizeP; x++)
                 {
-
-                    int col = axis_cols[(ChunkSizeP2 * axis) + i];
-                    col_face_masks[(ChunkSizeP2 * (axis * 2 + 1)) + i] = col & !(col >> 1);
-                    col_face_masks[(ChunkSizeP2 * (axis * 2 + 0)) + i] = col & !(col << 1);
+                    for(int z = 0; z < ChunkSizeP; z++)
+                    {
+                        ulong col = axis_cols[axis, z, x];
+                        col_face_masks[2*axis+0, z, x] = col & ~(col << 1);
+                        col_face_masks[2*axis+1, z, x] = col & ~(col >> 1);
+                    }
                 }
             }
 
-            //List<int[]> // guh i need to store many different face masks in here based on per material or something///
+            Dictionary<Material, Dictionary<int, uint[]>>[] data = new Dictionary<Material, Dictionary<int, uint[]>>[6] 
+            { 
+                new(), 
+                new(), 
+                new(), 
+                new(), 
+                new(), 
+                new() 
+            };
 
             // For each of the 6 directions
-            for(int axis2 = 0; axis2 < 6; axis2++)
+            for(byte axis2 = 0; axis2 < 6; axis2++)
             {
                 for(int z = 0; z < ChunkSize; z++)
                 {
@@ -187,13 +226,13 @@ namespace EvroDev.BacklotUtilities.Voxels
                     {
                         int col_index = 1 + x + ((z+1) * ChunkSizeP) + ChunkSizeP2 * axis2;
 
-                        // i believe that this col represents the "up" faces and stuff
-                        int col = col_face_masks[col_index] >> 1;
-                        col = col & !(1 << ChunkSize);
+                        ulong col = col_face_masks[axis2, z + 1, x + 1];
+                        col >>= 1;
+                        col &= ~(1ul << ChunkSize);
 
                         while (col != 0)
                         {
-                            int y = BitOperations.TrailingZeroCount(col);
+                            int y = GreedyGridwall.CountTrailingZeros(col);
 
                             col &= col - 1;
 
@@ -217,32 +256,108 @@ namespace EvroDev.BacklotUtilities.Voxels
 
                             Voxel currentVoxel = SafeSampleVoxel(voxelPos.x, voxelPos.y, voxelPos.z);
 
-                            // EVRONOTE continue here
+                            byte facingDirection = 0;
+
+                            switch (axis2)
+                            {
+                                case(0):
+                                    facingDirection = 1;
+                                    break;
+                                case (1):
+                                    facingDirection = 0;
+                                    break;
+                                case (2):
+                                    facingDirection = 3;
+                                    break;
+                                case (3):
+                                    facingDirection = 2;
+                                    break;
+                                case (4):
+                                    facingDirection = 5;
+                                    break;
+                                case (5):
+                                    facingDirection = 4;
+                                    break;
+                                default:
+                                    facingDirection = axis2;
+                                    break;
+                            }
+
+                            Material voxelID = currentVoxel.GetMaterial((FaceDirection)facingDirection);
+
+                            if(voxelID == null)
+                            {
+                                voxelID = BacklotManager.DefaultGridMaterial();
+                            }
+                            //int voxelID = 0;
+
+                            // WHAT THE FUCK :fireEmoji:
+                            if (!data[axis2].ContainsKey(voxelID))
+                            {
+                                data[axis2].Add(voxelID, new Dictionary<int, uint[]>());
+                            }
+                            if (!data[axis2][voxelID].ContainsKey(y))
+                            {
+                                data[axis2][voxelID].Add(y, new uint[ChunkSize]);
+                            }
+                            data[axis2][voxelID][y][x] |= 1u << z;
                         }
                     }
                 }
             }
 
+            List<GreedyGridwall.ResultingBacklot> backlotGenResults = new List<GreedyGridwall.ResultingBacklot>();
 
-            // Instantiate those backlots in world space, parent to this
-            foreach(_)
+            // add a list of Backlot Faces rn for here
+
+            for (int axis = 0; axis < data.Length; axis++)
             {
+                Dictionary<Material, Dictionary<int, uint[]>> block_mat_data = data[axis];
 
+                foreach(var material in block_mat_data.Keys)
+                {
+                    var axis_plane = block_mat_data[material];
+
+                    foreach (var axisPos in axis_plane.Keys)
+                    {
+                        uint[] plane = axis_plane[axisPos];
+
+                        // now FINALLY greedymesh it
+                        Debug.Log($"Axis: {axis_plane}\nAxis Pos: {axisPos}\n\"Axis plane int: {plane[0]}");
+                        var generatedGrids = GreedyGridwall.GreedTheGrid(plane, material, (FaceDirection)axis, axisPos);
+                        backlotGenResults.AddRange(generatedGrids);
+                    }
+                }
+            }
+
+            if (backlotsParent == null)
+            {
+                GameObject backParent = new GameObject("Generated Backlots");
+                backParent.transform.parent = transform;
+                backParent.transform.localPosition = Vector3.zero;
+                backlotsParent = backParent.transform;
+            }
+            else
+            {
+                for (int c = backlotsParent.childCount - 1; c >= 0; c--)
+                {
+                    DestroyImmediate(backlotsParent.GetChild(c).gameObject);
+                }
+            }
+
+            foreach (var backlot in backlotGenResults)
+            {
+                Debug.Log(backlot.scale);
+                var gridwall = BacklotManager.FindGridWall(backlot.scale);
+                if(gridwall != null)
+                { 
+                    GameObject inst = PrefabUtility.InstantiatePrefab(gridwall, backlotsParent) as GameObject;
+                    inst.GetComponentInChildren<MeshRenderer>().sharedMaterial = backlot.material;
+                    inst.transform.localPosition = backlot.localPos;
+                    inst.transform.rotation = backlot.rotation;
+                }
             }
         }
-
-        int[] GetSliceFromAxis(FaceDirection direction, int index)
-        {
-            switch(direction)
-            {
-                case(FaceDirection.Up):
-
-                    break;
-            }
-        }
-
-
-
 
         [ContextMenu("Extrude Selection (Debug)")]
         public void ExtrudeSelection()
@@ -257,6 +372,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 }
             }
             RegenGizmo();
+            GenerateBacklots();
 #endif
         }
 
@@ -273,6 +389,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 }
             }
             RegenGizmo();
+            GenerateBacklots();
 #endif
         }
 
@@ -290,13 +407,16 @@ namespace EvroDev.BacklotUtilities.Voxels
                     voxel.SetMaterial(face.FaceDirection, m);
                 }
             }
+            RegenGizmo();
+            GenerateBacklots();
 #endif
         }
 
         void OnDrawGizmos()
         {
             Gizmos.color = Color.white;
-            Gizmos.DrawWireCube(transform.position + (Dimensions/2), Dimensions);
+            Vector3 size = new Vector3(ChunkSize, ChunkSize, ChunkSize);
+            Gizmos.DrawWireCube(transform.position + (size/2), size);
         }
     }
 
@@ -305,6 +425,7 @@ namespace EvroDev.BacklotUtilities.Voxels
     public class Voxel
     {
         public bool IsEmpty = false;
+        [SerializeField]
         private Material[] _materials = new Material[6];
 
         public void SetMaterial(FaceDirection dir, Material mat)
@@ -325,48 +446,119 @@ namespace EvroDev.BacklotUtilities.Voxels
         public class ResultingBacklot
         {
             public Vector2 planePos;
-            public Vector3 worldPos;
+            public Vector3 localPos;
             public Vector2 scale;
+            public FaceDirection axis;
+            public int axisIndex;
+            public Quaternion rotation;
             public Material material;
-            public SurfaceDataCardReference surfaceData;
         }
 
-        public List<ResultingBacklot> GreedTheGrid(int[] data, Material theMat)
+        public static int CountTrailingZeros(ulong n)
+        {
+            if (n == 0) return 64; // Assuming 32-bit integer
+            int count = 0;
+            while ((n & 1) == 0)
+            {
+                n >>= 1;
+                count++;
+            }
+            return count;
+        }
+        public static int CountTrailingZeros(int n)
+        {
+            if (n == 0) return 32; // Assuming 32-bit integer
+            int count = 0;
+            while ((n & 1) == 0)
+            {
+                n >>= 1;
+                count++;
+            }
+            return count;
+        }
+
+        public static List<ResultingBacklot> GreedTheGrid(uint[] data, Material theMat, FaceDirection axis, int axisPos)
         {
             List<ResultingBacklot> outpt = new List<ResultingBacklot>();
-            for(int x = 0; x < grid.Length; x++)
+            for(int x = 0; x < data.Length; x++)
             {
                 int y = 0;
                 while(y < 32)
                 {
-                    y += BitOperations.TrailingZeroCount(data[x] >> y);
-                    int height = BitOperations.TrailingZeroCount(~(data[x] >> y));
+                    y += CountTrailingZeros(data[x] >> y);
+                    int height = CountTrailingZeros(~(data[x] >> y));
+
+                    if (height == 7)
+                        height = 6;
 
                     if(height == 0) break;
 
-                    int h_as_mask = (1 << height) - 1;
-                    int mask = h_as_mask << y;
+                    uint h_as_mask = (1u << height) - 1;
+                    uint mask = h_as_mask << y;
                     int w = 1;
 
 
-                    while (x + w < data.length)
+                    while (x + w < data.Length)
                     {
-                        int nextRow = (data[x+w] >> y) & h_as_mask;
-                        if(nextRow != h_as_mask)
+                        long nextRow = (data[x+w] >> y) & h_as_mask;
+                        if(w == 6 || w == 8)
+                        {
+                            if (x + w + 1 > data.Length - 1) break;
+
+                            long nextNextRow = (data[x + w + 1] >> y) & h_as_mask;
+                            if (nextNextRow != h_as_mask)
+                                break;
+                        }
+                        if (nextRow != h_as_mask)
                             break;
 
-                        data[x+w] = data[x+w] & !mask;
+                        data[x+w] &= ~mask;
                         w += 1;
                     }
 
-                    Vector2 scale = new Vector2(height, w);
+                    Vector2 scale = new Vector2(w, height);
 
-                    outpt.Add(new ResultingBacklot()
-                    {
-                        planePos = new Vector2(x, y) + (scale/2),
+                    var backlot = new ResultingBacklot() { 
+                        planePos = new Vector2(x, y) + (scale / 2),
                         scale = scale,
-                        material = theMat
-                    });
+                        material = theMat,
+                        axis = axis,
+                        axisIndex = axisPos
+                    };
+
+                    bool normal = scale.y >= scale.x;
+
+                    switch (axis)
+                    {
+                        case FaceDirection.Forward:
+                            backlot.rotation = Quaternion.LookRotation(normal ? Vector3.up : Vector3.right, Vector3.forward);
+                            backlot.localPos = new Vector3(backlot.planePos.x, backlot.planePos.y, axisPos);
+                            break;
+                        case FaceDirection.Backward:
+                            backlot.rotation = Quaternion.LookRotation(normal ? Vector3.up : Vector3.right, Vector3.back);
+                            backlot.localPos = new Vector3(backlot.planePos.x, backlot.planePos.y, axisPos + 1);
+                            break;
+                        case FaceDirection.Up:
+                            backlot.rotation = Quaternion.LookRotation(normal ? Vector3.forward : Vector3.right, Vector3.down);
+                            backlot.localPos = new Vector3(backlot.planePos.x, axisPos + 1, backlot.planePos.y);
+                            break;
+                        case FaceDirection.Down:
+                            backlot.rotation = Quaternion.LookRotation(normal ? Vector3.forward : Vector3.right, Vector3.up);
+                            backlot.localPos = new Vector3(backlot.planePos.x, axisPos, backlot.planePos.y);
+                            break;
+                        case FaceDirection.Left:
+                            backlot.rotation = Quaternion.LookRotation(normal ? Vector3.up : Vector3.forward, Vector3.right);
+                            backlot.localPos = new Vector3(axisPos, backlot.planePos.y, backlot.planePos.x);
+                            break;
+                        case FaceDirection.Right:
+                            backlot.rotation = Quaternion.LookRotation(normal ? Vector3.up : Vector3.forward, Vector3.left);
+                            backlot.localPos = new Vector3(axisPos + 1, backlot.planePos.y, backlot.planePos.x);
+                            break;
+                    }
+
+                    outpt.Add(backlot);
+
+                    y += height;
 
                 }
             }

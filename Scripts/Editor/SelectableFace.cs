@@ -1,17 +1,18 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using EvroDev.BacklotUtilities.Extensions;
 
 namespace EvroDev.BacklotUtilities.Voxels
 {
     public enum FaceDirection
     {
-        Forward,
-        Backward,
-        Up,
-        Down,
-        Left,
-        Right
+        Forward = 4,
+        Backward = 5,
+        Up = 1,
+        Down = 0,
+        Left = 2,
+        Right = 3
     }
 
     public class SelectableFace : MonoBehaviour
@@ -56,6 +57,14 @@ namespace EvroDev.BacklotUtilities.Voxels
             }
 
             Gizmos.color = new Color(1, 1, 1, 0.1f);
+            if(material)
+            {
+                try
+                {
+                    Gizmos.color = TextureColorExtensions.GetAverageColor(material.mainTexture as Texture2D) * material.color;
+                }
+                catch { }
+            }
             Gizmos.DrawCube(centerPos, scale);
         }
 
@@ -140,8 +149,8 @@ namespace EvroDev.BacklotUtilities.Voxels
             outpt.voxelPosition = new Vector3Int(x,y,z);
             outpt.FaceDirection = direction;
 
-            if(voxel.materials.ContainsKey(direction))
-                outpt.material = voxel.materials[direction];
+            if(voxel.GetMaterial(direction) != null)
+                outpt.material = voxel.GetMaterial(direction);
 
             return outpt;
         }
