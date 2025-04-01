@@ -525,6 +525,33 @@ namespace EvroDev.BacklotUtilities.Voxels
             return count;
         }
 
+        public static int[] ValidLengths = new int[]
+        {
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            8,
+            10
+            // Fill out later
+        };
+
+        public static int GetValidBacklotLength(int realLength)
+        {
+            if(ValidLengths.Contains(realLength)) return realLength;
+
+            for(int i = 1; i < ValidLengths.Length; i++)
+            {
+                if(ValidLengths[i-1] < realLength && ValidLengths[i] > realLength)
+                {
+                    return ValidLengths[i-1];
+                }
+            } 
+        }
+
         public static List<ResultingBacklot> GreedTheGrid(uint[] data, Material theMat, FaceDirection axis, int axisPos)
         {
             List<ResultingBacklot> outpt = new List<ResultingBacklot>();
@@ -534,10 +561,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 while(y < 32)
                 {
                     y += CountTrailingZeros(data[x] >> y);
-                    int height = CountTrailingZeros(~(data[x] >> y));
-
-                    if (height == 7)
-                        height = 6;
+                    int height = GetValidBacklotLength(CountTrailingZeros(~(data[x] >> y)));
 
                     if(height == 0) break;
 
@@ -549,16 +573,50 @@ namespace EvroDev.BacklotUtilities.Voxels
                     while (x + w < data.Length)
                     {
                         long nextRow = (data[x+w] >> y) & h_as_mask;
-                        if(w == 6 || w == 8)
-                        {
-                            if (x + w + 1 > data.Length - 1) break;
+                        bool brokenInBigJump = false;
 
-                            long nextNextRow = (data[x + w + 1] >> y) & h_as_mask;
-                            if (nextNextRow != h_as_mask)
-                                break;
-                        }
                         if (nextRow != h_as_mask)
                             break;
+
+                        // if the next one is NOT a valid
+                        // 6, 8
+                        // If w = 6 (cant do 7 because not valid)
+                        if(!ValidLengths.Contains(w+1))
+                        {
+                            int validW = w; // w = 6
+                            // If it can, &= ~mask them all
+                            // If it cant, break (out of all ugh)
+                            int nextValidSize = ValidLengths[ValidLengths.IndexOf(w)+1];
+                            // See if it can extend ALL THE WAY to the next valid one
+                            // Will break out after checking extraW as 2, bc 8 is contained
+                            for(int extraW = 1; !ValidLengths.Contains(w+extraW-1); extraW++)
+                            {
+                                // checks at 7
+                                // checks at 8
+                                long nextNextRow = (data[x + w + extraW] >> y) & h_as_mask;
+                                if (nextNextRow != h_as_mask || x + w + extraW > data.Length - 1)
+                                {
+                                    w = validW;
+                                    brokenInBigJump = true;
+                                    break;
+                                }
+                                else if(ValidLengths.Contains(w+extraW))
+                                {
+                                    // Should happen when evaluating at 8, and none of the previous were broken
+                                    // Means it can extend all the way to the next valid length. Set w to the new value and &= ~ the stuffs
+
+                                    for(int g = 0; g < extraW; g++)
+                                    {
+                                        data[x+w+g] &= ~mask;
+                                    }
+                                    w += extraW;
+                                    break;
+                                }
+                                // im actually dying this code hurts me
+                            }
+                        }
+
+                        if(brokenInBigJump) break;
 
                         data[x+w] &= ~mask;
                         w += 1;
