@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -549,7 +550,8 @@ namespace EvroDev.BacklotUtilities.Voxels
                 {
                     return ValidLengths[i-1];
                 }
-            } 
+            }
+            return ValidLengths[ValidLengths.Length-1];
         }
 
         public static List<ResultingBacklot> GreedTheGrid(uint[] data, Material theMat, FaceDirection axis, int axisPos)
