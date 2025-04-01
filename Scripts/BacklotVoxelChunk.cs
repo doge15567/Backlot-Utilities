@@ -17,8 +17,8 @@ namespace EvroDev.BacklotUtilities.Voxels
         int ChunkSizeP2 => ChunkSizeP * ChunkSizeP;
         public Voxel[] voxels;
 
-        private Transform tempGizmosParent;
-        private Transform backlotsParent;
+        public Transform tempGizmosParent;
+        public Transform backlotsParent;
         private List<SelectableFace> gizmoFaces;
 
 
@@ -105,6 +105,10 @@ namespace EvroDev.BacklotUtilities.Voxels
                 {
                     DestroyImmediate(tempGizmosParent.GetChild(c).gameObject);
                 }
+                foreach(SelectableFace f in GetComponentsInChildren<SelectableFace>())
+                {
+                    DestroyImmediate(f.gameObject);
+                }
                 gizmoFaces.Clear();
             }
 
@@ -121,27 +125,27 @@ namespace EvroDev.BacklotUtilities.Voxels
 
                         if(SafeSampleVoxel(x,y+1,z).IsEmpty)
                         {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Up, thisVoxel);
+                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Up, thisVoxel, this);
                         }
                         if(SafeSampleVoxel(x,y-1,z).IsEmpty)
                         {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Down, thisVoxel);
+                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Down, thisVoxel, this);
                         }
                         if(SafeSampleVoxel(x,y,z+1).IsEmpty)
                         {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Forward, thisVoxel);
+                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Forward, thisVoxel, this);
                         }
                         if(SafeSampleVoxel(x,y,z-1).IsEmpty)
                         {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Backward, thisVoxel);
+                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Backward, thisVoxel, this);
                         }
                         if(SafeSampleVoxel(x+1,y,z).IsEmpty)
                         {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Right, thisVoxel);
+                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Right, thisVoxel, this);
                         }
                         if(SafeSampleVoxel(x-1,y,z).IsEmpty)
                         {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Left, thisVoxel);
+                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Left, thisVoxel, this);
                         }
                     }
                 }
@@ -258,31 +262,12 @@ namespace EvroDev.BacklotUtilities.Voxels
 
                             byte facingDirection = 0;
 
-                            switch (axis2)
+                            facingDirection = axis2 switch
                             {
-                                case(0):
-                                    facingDirection = 1;
-                                    break;
-                                case (1):
-                                    facingDirection = 0;
-                                    break;
-                                case (2):
-                                    facingDirection = 3;
-                                    break;
-                                case (3):
-                                    facingDirection = 2;
-                                    break;
-                                case (4):
-                                    facingDirection = 5;
-                                    break;
-                                case (5):
-                                    facingDirection = 4;
-                                    break;
-                                default:
-                                    facingDirection = axis2;
-                                    break;
-                            }
-
+                                (4) => 5,
+                                (5) => 4,
+                                _ => axis2,
+                            };
                             Material voxelID = currentVoxel.GetMaterial((FaceDirection)facingDirection);
 
                             if(voxelID == null)
@@ -368,12 +353,22 @@ namespace EvroDev.BacklotUtilities.Voxels
                 if(g.TryGetComponent(out SelectableFace face))
                 {
                     Vector3Int p = face.GetTargetAir();
-                    SetVoxel(p.x, p.y, p.z, new Voxel());
+                    Voxel newVox = new Voxel();
+                    newVox.SetMaterial(face.FaceDirection, face.material);
+                    SetVoxel(p.x, p.y, p.z, newVox);
                 }
             }
             RegenGizmo();
-            GenerateBacklots();
 #endif
+        }
+
+        public void ExtrudeFaceGizmo(SelectableFace face)
+        {
+            Vector3Int p = face.GetTargetAir();
+            Voxel newVox = new Voxel();
+            newVox.SetMaterial(face.FaceDirection, face.material);
+            SetVoxel(p.x, p.y, p.z, newVox);
+            RegenGizmo();
         }
 
         [ContextMenu("Intrude Selection (Debug)")]
@@ -384,13 +379,23 @@ namespace EvroDev.BacklotUtilities.Voxels
             {
                 if(g.TryGetComponent(out SelectableFace face))
                 {
+                    Vector3Int newFace = face.GetBackwardPos();
+                    SafeSampleVoxel(newFace.x, newFace.y, newFace.z).SetMaterial(face.FaceDirection, face.material);
                     Vector3Int p = face.voxelPosition;
                     SafeSampleVoxel(p.x, p.y, p.z).IsEmpty = true;
                 }
             }
             RegenGizmo();
-            GenerateBacklots();
 #endif
+        }
+
+        public void IntrudeFaceGizmo(SelectableFace face)
+        {
+            Vector3Int newFace = face.GetBackwardPos();
+            SafeSampleVoxel(newFace.x, newFace.y, newFace.z).SetMaterial(face.FaceDirection, face.material);
+            Vector3Int p = face.voxelPosition;
+            SafeSampleVoxel(p.x, p.y, p.z).IsEmpty = true;
+            RegenGizmo();
         }
 
         public void PaintSelection(Material m)
