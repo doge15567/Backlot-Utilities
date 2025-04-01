@@ -1,7 +1,6 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting.YamlDotNet.Core.Tokens;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -122,7 +121,6 @@ namespace EvroDev.BacklotUtilities.Voxels
                         Voxel thisVoxel = SafeSampleVoxel(x,y,z);
                         if(thisVoxel == null || thisVoxel.IsEmpty) continue;
 
-
                         if(SafeSampleVoxel(x,y+1,z).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Up, thisVoxel, this);
@@ -152,6 +150,50 @@ namespace EvroDev.BacklotUtilities.Voxels
             }
         }
 
+        public struct VoxelFaceSelection
+        {
+            public Vector3Int position;
+            public FaceDirection direction;
+
+            public VoxelFaceSelection(Vector3Int pos, FaceDirection dir)
+            {
+                position = pos;
+                direction = dir;
+            }
+
+            public static List<VoxelFaceSelection> FromSelection()
+            {
+                List<VoxelFaceSelection> outpt = new List<VoxelFaceSelection>();
+                foreach(GameObject g in Selection.gameObjects)
+                {
+                    if(g.TryGetComponent(out SelectableFace face))
+                    {
+                        outpt.Add(new VoxelFaceSelection(face.voxelPosition, face.FaceDirection));
+                    }
+                }
+                return outpt;
+            }
+        }
+
+        void RegenGizmo(List<VoxelFaceSelection> newSelection)
+        {
+            RegenGizmo();
+            List<GameObject> newFounds = new List<GameObject>();
+            foreach(VoxelFaceSelection selection in newSelection)
+            {
+                var matching = GetComponentsInChildren<SelectableFace>().Where(p => p.voxelPosition == selection.position && p.FaceDirection == selection.direction).ToArray();
+                if(matching.Length > 0)
+                {
+                    newFounds.Add(matching[0].gameObject);
+                }
+            }
+            if(newFound.Count != 0)
+            {
+                Selection.objects = Selection.gameObjects.Concat(newFounds).Distinct().ToArray();
+            }
+        }
+
+
         [ContextMenu("Set Material to Selected")]
         void SetWithSelectedMaterial()
         {
@@ -164,18 +206,12 @@ namespace EvroDev.BacklotUtilities.Voxels
                     break;
                 }
             }
-            RegenGizmo();
 #endif
         }
-
-
 
         [ContextMenu("Generate Backlot")]
         void GenerateBacklots()
         {
-            // Build a list of Backlot Instances, with things like position, scale, material etc
-
-            //Makes an array to store 
             ulong[,,] axis_cols = new ulong[3,ChunkSizeP,ChunkSizeP];
             ulong[,,] col_face_masks = new ulong[6,ChunkSizeP,ChunkSizeP];
 
@@ -335,7 +371,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 Debug.Log(backlot.scale);
                 var gridwall = BacklotManager.FindGridWall(backlot.scale);
                 if(gridwall != null)
-                { 
+                {
                     GameObject inst = PrefabUtility.InstantiatePrefab(gridwall, backlotsParent) as GameObject;
                     inst.GetComponentInChildren<MeshRenderer>().sharedMaterial = backlot.material;
                     inst.transform.localPosition = backlot.localPos;
@@ -348,22 +384,26 @@ namespace EvroDev.BacklotUtilities.Voxels
         public void ExtrudeSelection()
         {
 #if UNITY_EDITOR
+            List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
             foreach (GameObject g in Selection.gameObjects)
             {
                 if(g.TryGetComponent(out SelectableFace face))
                 {
+                    if(face.chunk != this) continue;
                     Vector3Int p = face.GetTargetAir();
                     Voxel newVox = new Voxel();
                     newVox.SetMaterial(face.FaceDirection, face.material);
                     SetVoxel(p.x, p.y, p.z, newVox);
+                    newSelection.Add(new VoxelFaceSelection(p, face.FaceDirection));
                 }
             }
-            RegenGizmo();
+            RegenGizmo(newSelection);
 #endif
         }
 
         public void ExtrudeFaceGizmo(SelectableFace face)
         {
+            if(face.chunk != this) return;
             Vector3Int p = face.GetTargetAir();
             Voxel newVox = new Voxel();
             newVox.SetMaterial(face.FaceDirection, face.material);
@@ -375,22 +415,26 @@ namespace EvroDev.BacklotUtilities.Voxels
         public void IntrudeSelection()
         {
 #if UNITY_EDITOR
+            List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
             foreach (GameObject g in Selection.gameObjects)
             {
                 if(g.TryGetComponent(out SelectableFace face))
                 {
+                    if(face.chunk != this) continue;
                     Vector3Int newFace = face.GetBackwardPos();
                     SafeSampleVoxel(newFace.x, newFace.y, newFace.z).SetMaterial(face.FaceDirection, face.material);
                     Vector3Int p = face.voxelPosition;
                     SafeSampleVoxel(p.x, p.y, p.z).IsEmpty = true;
+                    newSelection.Add(new VoxelFaceSelection(newFace, face.FaceDirection));
                 }
             }
-            RegenGizmo();
+            RegenGizmo(newSelection);
 #endif
         }
 
         public void IntrudeFaceGizmo(SelectableFace face)
         {
+            if(face.chunk != this) return;
             Vector3Int newFace = face.GetBackwardPos();
             SafeSampleVoxel(newFace.x, newFace.y, newFace.z).SetMaterial(face.FaceDirection, face.material);
             Vector3Int p = face.voxelPosition;
@@ -401,19 +445,18 @@ namespace EvroDev.BacklotUtilities.Voxels
         public void PaintSelection(Material m)
         {
 #if UNITY_EDITOR
+            List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
             foreach (GameObject g in Selection.gameObjects)
             {
                 if(g.TryGetComponent(out SelectableFace face))
                 {
                     Vector3Int p = face.voxelPosition;
                     Voxel voxel = SafeSampleVoxel(p.x, p.y, p.z);
-
-
                     voxel.SetMaterial(face.FaceDirection, m);
+                    newSelection.Add(new VoxelFaceSelection(p, face.FaceDirection));
                 }
             }
-            RegenGizmo();
-            GenerateBacklots();
+            RegenGizmo(newSelection);
 #endif
         }
 
@@ -523,7 +566,7 @@ namespace EvroDev.BacklotUtilities.Voxels
 
                     Vector2 scale = new Vector2(w, height);
 
-                    var backlot = new ResultingBacklot() { 
+                    var backlot = new ResultingBacklot() {
                         planePos = new Vector2(x, y) + (scale / 2),
                         scale = scale,
                         material = theMat,
