@@ -12,6 +12,7 @@ namespace EvroDev.BacklotUtilities.Voxels
 {
     public class BacklotVoxelChunk : MonoBehaviour
     {
+        public BacklotChunkManager manager;
         public int ChunkSize = 32;
         int ChunkSizeP => ChunkSize + 2;
         int ChunkSizeP2 => ChunkSizeP * ChunkSizeP;
@@ -21,8 +22,21 @@ namespace EvroDev.BacklotUtilities.Voxels
         public Transform backlotsParent;
         private List<SelectableFace> gizmoFaces;
 
+        [HideInInspector]
+        public bool isDirty = false;
 
-        Voxel SafeSampleVoxel(int x, int y, int z)
+        public Voxel GetVoxel(Vector3Int position)
+        {
+            manager.GetVoxel(this, position);
+        }
+
+        public Voxel GetVoxel(int x, int y, int z)
+        {
+            manager.GetVoxel(this, new Vector3Int(x,y,z));
+        }
+
+
+        public Voxel SafeSampleVoxel(int x, int y, int z)
         {
             if(x < 0 || x >= ChunkSize)
             {
@@ -52,7 +66,12 @@ namespace EvroDev.BacklotUtilities.Voxels
         }
 
 
-        void SetVoxel(int x, int y, int z, Voxel voxel)
+        public void SetVoxel(int x, int y, int z, Voxel voxel)
+        {
+            manager.SetVoxel(this, new Vector3Int(x,y,z), voxel);
+        }
+
+        public void SafeSetVoxel()
         {
             if(x < 0 || x >= ChunkSize)
             {
@@ -122,27 +141,27 @@ namespace EvroDev.BacklotUtilities.Voxels
                         Voxel thisVoxel = SafeSampleVoxel(x,y,z);
                         if(thisVoxel == null || thisVoxel.IsEmpty) continue;
 
-                        if(SafeSampleVoxel(x,y+1,z).IsEmpty)
+                        if(GetVoxel(x,y+1,z).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Up, thisVoxel, this);
                         }
-                        if(SafeSampleVoxel(x,y-1,z).IsEmpty)
+                        if(GetVoxel(x,y-1,z).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Down, thisVoxel, this);
                         }
-                        if(SafeSampleVoxel(x,y,z+1).IsEmpty)
+                        if(GetVoxel(x,y,z+1).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Forward, thisVoxel, this);
                         }
-                        if(SafeSampleVoxel(x,y,z-1).IsEmpty)
+                        if(GetVoxel(x,y,z-1).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Backward, thisVoxel, this);
                         }
-                        if(SafeSampleVoxel(x+1,y,z).IsEmpty)
+                        if(GetVoxel(x+1,y,z).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Right, thisVoxel, this);
                         }
-                        if(SafeSampleVoxel(x-1,y,z).IsEmpty)
+                        if(GetVoxel(x-1,y,z).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Left, thisVoxel, this);
                         }
@@ -211,16 +230,16 @@ namespace EvroDev.BacklotUtilities.Voxels
         }
 
         [ContextMenu("Generate Backlot")]
-        void GenerateBacklots()
+        public void GenerateBacklots()
         {
             ulong[,,] axis_cols = new ulong[3,ChunkSizeP,ChunkSizeP];
             ulong[,,] col_face_masks = new ulong[6,ChunkSizeP,ChunkSizeP];
 
-            for (int y = 0; y < ChunkSize; y++)
+            for (int y = -1; y < ChunkSize + 1; y++)
             {
-                for(int z = 0; z < ChunkSize; z++)
+                for(int z = -1; z < ChunkSize + 1; z++)
                 {
-                    for(int x = 0; x < ChunkSize; x++)
+                    for(int x = -1; x < ChunkSize + 1; x++)
                     {
                         Vector3Int pos = new (x, y, z);
                         Voxel b = SafeSampleVoxel(x, y, z);
@@ -379,6 +398,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                     inst.transform.rotation = backlot.rotation;
                 }
             }
+            isDirty = false;
         }
 
         [ContextMenu("Extrude Selection (Debug)")]
@@ -399,6 +419,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 }
             }
             RegenGizmo(newSelection);
+            isDirty = true;
 #endif
         }
 
@@ -410,6 +431,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             newVox.SetMaterial(face.FaceDirection, face.material);
             SetVoxel(p.x, p.y, p.z, newVox);
             RegenGizmo();
+            isDirty = true;
         }
 
         [ContextMenu("Intrude Selection (Debug)")]
@@ -430,6 +452,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 }
             }
             RegenGizmo(newSelection);
+            isDirty = true;
 #endif
         }
 
@@ -441,6 +464,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             Vector3Int p = face.voxelPosition;
             SafeSampleVoxel(p.x, p.y, p.z).IsEmpty = true;
             RegenGizmo();
+            isDirty = true;
         }
 
         public void PaintSelection(Material m)
@@ -451,6 +475,8 @@ namespace EvroDev.BacklotUtilities.Voxels
             {
                 if(g.TryGetComponent(out SelectableFace face))
                 {
+                    if(face.chunk != this) continue;
+
                     Vector3Int p = face.voxelPosition;
                     Voxel voxel = SafeSampleVoxel(p.x, p.y, p.z);
                     voxel.SetMaterial(face.FaceDirection, m);
@@ -458,6 +484,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 }
             }
             RegenGizmo(newSelection);
+            isDirty = true;
 #endif
         }
 
