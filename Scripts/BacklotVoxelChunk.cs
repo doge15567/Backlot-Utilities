@@ -60,7 +60,6 @@ namespace EvroDev.BacklotUtilities.Voxels
                 };
             }
 
-
             int index = x + ChunkSize * (y + ChunkSize * z);
             return voxels[index];
         }

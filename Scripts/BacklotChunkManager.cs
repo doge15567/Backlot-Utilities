@@ -172,6 +172,10 @@ public class BacklotChunkManager : MonoBehaviour
 
         BacklotVoxelChunk chunk = chunkGo.AddComponent<BacklotVoxelChunk>();
 
+        chunk.manager = this;
+        chunk.ChunkSize = ChunkSize;
+        chunk.Regen();
+
         chunks.Add(new PosToChunk(){ 
             pos = chunkPosition, 
             chunk = chunk
