@@ -2,7 +2,6 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using EvroDev.BacklotUtilities.Extensions;
-using static UnityEngine.GraphicsBuffer;
 using UnityEditor;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -28,6 +27,8 @@ namespace EvroDev.BacklotUtilities.Voxels
 
         void OnDrawGizmos()
         {
+            if(chunk.manager.visualizationMode != VisualizationMode.Gizmos) return;
+
             Vector3 centerPos = transform.parent.position + voxelPosition + (Vector3.one / 2);
             Vector3 scale = Vector3.one;
             if (FaceDirection == FaceDirection.Up)
@@ -80,6 +81,8 @@ namespace EvroDev.BacklotUtilities.Voxels
 
         private void OnDrawGizmosSelected()
         {
+            if(chunk.manager.visualizationMode != VisualizationMode.Gizmos) return;
+
             Vector3 centerPos = transform.parent.position + voxelPosition + (Vector3.one / 2);
             Vector3 scale = Vector3.one;
             if (FaceDirection == FaceDirection.Up)
