@@ -183,6 +183,15 @@ public class BacklotChunkManager : MonoBehaviour
 
         return chunk;
     }
+
+    void Reset()
+    {
+        var chunk = CreateNewChunk(Vector3Int.zero);
+        SetVoxel(chunk, Vector3Int.zero, new Voxel()
+        {
+            IsEmpty = false;
+        });
+    }
 }
 
 [Serializable]
