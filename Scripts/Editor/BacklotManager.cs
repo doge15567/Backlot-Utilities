@@ -12,6 +12,8 @@ namespace EvroDev.BacklotUtilities
     {
         public static Material DefaultGridMaterial()
         {
+            if (_gridMat != null) return _gridMat;
+
             string matName = "mat_grid_Grey_67_L";
             string[] guids = AssetDatabase.FindAssets(matName);
             foreach (var guid in guids)
@@ -22,11 +24,14 @@ namespace EvroDev.BacklotUtilities
 
                 if (gridWall != null)
                 {
+                    _gridMat = gridWall;
                     return gridWall;
                 }
             }
             return null;
         }
+
+        private static Material _gridMat;
 
 
         public static GameObject FindGridWall(Vector2 size)

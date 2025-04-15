@@ -2,6 +2,8 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.UIElements;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -20,39 +22,39 @@ namespace EvroDev.BacklotUtilities.Voxels
 
         public Transform tempGizmosParent;
         public Transform backlotsParent;
-        private List<SelectableFace> gizmoFaces;
+        private List<SelectableFace> gizmoFaces = new List<SelectableFace>();
 
         [HideInInspector]
         public bool isDirty = false;
 
         public Voxel GetVoxel(Vector3Int position)
         {
-            manager.GetVoxel(this, position);
+            return manager.GetVoxel(this, position);
         }
 
         public Voxel GetVoxel(int x, int y, int z)
         {
-            manager.GetVoxel(this, new Vector3Int(x,y,z));
+            return manager.GetVoxel(this, new Vector3Int(x, y, z));
         }
 
 
         public Voxel SafeSampleVoxel(int x, int y, int z)
         {
-            if(x < 0 || x >= ChunkSize)
+            if (x < 0 || x >= ChunkSize)
             {
                 return new Voxel()
                 {
                     IsEmpty = true
                 };
             }
-            if(y < 0 || y >= ChunkSize)
+            if (y < 0 || y >= ChunkSize)
             {
                 return new Voxel()
                 {
                     IsEmpty = true
                 };
             }
-            if(z < 0 || z >= ChunkSize)
+            if (z < 0 || z >= ChunkSize)
             {
                 return new Voxel()
                 {
@@ -67,25 +69,27 @@ namespace EvroDev.BacklotUtilities.Voxels
 
         public void SetVoxel(int x, int y, int z, Voxel voxel)
         {
-            manager.SetVoxel(this, new Vector3Int(x,y,z), voxel);
+            manager.SetVoxel(this, new Vector3Int(x, y, z), voxel);
         }
 
-        public void SafeSetVoxel()
+        public void SafeSetVoxel(Vector3Int position, Voxel voxel)
         {
-            if(x < 0 || x >= ChunkSize)
+            if (position.x < 0 || position.x >= ChunkSize)
             {
                 return;
             }
-            if(y < 0 || y >= ChunkSize)
+            if (position.y < 0 || position.y >= ChunkSize)
             {
                 return;
             }
-            if(z < 0 || z >= ChunkSize)
+            if (position.z < 0 || position.z >= ChunkSize)
             {
                 return;
             }
-            int index = x + ChunkSize * (y + ChunkSize * z);
+            int index = position.x + ChunkSize * (position.y + ChunkSize * position.z);
             voxels[index] = voxel;
+            isDirty = true;
+            RegenGizmo();
         }
 
 
@@ -99,7 +103,12 @@ namespace EvroDev.BacklotUtilities.Voxels
                 {
                     for (int z = 0; z < ChunkSize; z++)
                     {
-                        SetVoxel(x, y, z, new Voxel());
+                        int index = x + ChunkSize * (y + ChunkSize * z);
+                        voxels[index] = new Voxel()
+                        {
+                            IsEmpty = true
+                        };
+                        isDirty = true;
                     }
                 }
             }
@@ -109,7 +118,9 @@ namespace EvroDev.BacklotUtilities.Voxels
         [ContextMenu("Regen Gizmos")]
         void RegenGizmo()
         {
-            if(tempGizmosParent == null)
+            if (!isDirty) return;
+
+            if (tempGizmosParent == null)
             {
                 GameObject gizmoParent = new GameObject("TEMP Gizmo Parent");
                 gizmoParent.hideFlags = HideFlags.HideInHierarchy;
@@ -123,7 +134,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 {
                     DestroyImmediate(tempGizmosParent.GetChild(c).gameObject);
                 }
-                foreach(SelectableFace f in GetComponentsInChildren<SelectableFace>())
+                foreach (SelectableFace f in GetComponentsInChildren<SelectableFace>())
                 {
                     DestroyImmediate(f.gameObject);
                 }
@@ -131,36 +142,36 @@ namespace EvroDev.BacklotUtilities.Voxels
             }
 
 
-            for(int x = 0; x < ChunkSize; x++)
+            for (int x = 0; x < ChunkSize; x++)
             {
                 for (int y = 0; y < ChunkSize; y++)
                 {
                     for (int z = 0; z < ChunkSize; z++)
                     {
-                        Voxel thisVoxel = SafeSampleVoxel(x,y,z);
-                        if(thisVoxel == null || thisVoxel.IsEmpty) continue;
+                        Voxel thisVoxel = SafeSampleVoxel(x, y, z);
+                        if (thisVoxel == null || thisVoxel.IsEmpty) continue;
 
-                        if(GetVoxel(x,y+1,z).IsEmpty)
+                        if (GetVoxel(x, y + 1, z).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Up, thisVoxel, this);
                         }
-                        if(GetVoxel(x,y-1,z).IsEmpty)
+                        if (GetVoxel(x, y - 1, z).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Down, thisVoxel, this);
                         }
-                        if(GetVoxel(x,y,z+1).IsEmpty)
+                        if (GetVoxel(x, y, z + 1).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Forward, thisVoxel, this);
                         }
-                        if(GetVoxel(x,y,z-1).IsEmpty)
+                        if (GetVoxel(x, y, z - 1).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Backward, thisVoxel, this);
                         }
-                        if(GetVoxel(x+1,y,z).IsEmpty)
+                        if (GetVoxel(x + 1, y, z).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Right, thisVoxel, this);
                         }
-                        if(GetVoxel(x-1,y,z).IsEmpty)
+                        if (GetVoxel(x - 1, y, z).IsEmpty)
                         {
                             SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Left, thisVoxel, this);
                         }
@@ -183,9 +194,9 @@ namespace EvroDev.BacklotUtilities.Voxels
             public static List<VoxelFaceSelection> FromSelection()
             {
                 List<VoxelFaceSelection> outpt = new List<VoxelFaceSelection>();
-                foreach(GameObject g in Selection.gameObjects)
+                foreach (GameObject g in Selection.gameObjects)
                 {
-                    if(g.TryGetComponent(out SelectableFace face))
+                    if (g.TryGetComponent(out SelectableFace face))
                     {
                         outpt.Add(new VoxelFaceSelection(face.voxelPosition, face.FaceDirection));
                     }
@@ -198,15 +209,15 @@ namespace EvroDev.BacklotUtilities.Voxels
         {
             RegenGizmo();
             List<GameObject> newFounds = new List<GameObject>();
-            foreach(VoxelFaceSelection selection in newSelection)
+            foreach (VoxelFaceSelection selection in newSelection)
             {
                 var matching = GetComponentsInChildren<SelectableFace>().Where(p => p.voxelPosition == selection.position && p.FaceDirection == selection.direction).ToArray();
-                if(matching.Length > 0)
+                if (matching.Length > 0)
                 {
                     newFounds.Add(matching[0].gameObject);
                 }
             }
-            if(newFound.Count != 0)
+            if (newFounds.Count != 0)
             {
                 Selection.objects = Selection.gameObjects.Concat(newFounds).Distinct().ToArray();
             }
@@ -231,59 +242,59 @@ namespace EvroDev.BacklotUtilities.Voxels
         [ContextMenu("Generate Backlot")]
         public void GenerateBacklots()
         {
-            ulong[,,] axis_cols = new ulong[3,ChunkSizeP,ChunkSizeP];
-            ulong[,,] col_face_masks = new ulong[6,ChunkSizeP,ChunkSizeP];
+            ulong[,,] axis_cols = new ulong[3, ChunkSizeP, ChunkSizeP];
+            ulong[,,] col_face_masks = new ulong[6, ChunkSizeP, ChunkSizeP];
 
             for (int y = -1; y < ChunkSize + 1; y++)
             {
-                for(int z = -1; z < ChunkSize + 1; z++)
+                for (int z = -1; z < ChunkSize + 1; z++)
                 {
-                    for(int x = -1; x < ChunkSize + 1; x++)
+                    for (int x = -1; x < ChunkSize + 1; x++)
                     {
-                        Vector3Int pos = new (x, y, z);
-                        Voxel b = SafeSampleVoxel(x, y, z);
-                        if(!b.IsEmpty)
+                        Vector3Int pos = new(x, y, z);
+                        Voxel b = GetVoxel(x, y, z);
+                        if (!b.IsEmpty)
                         {
-                            axis_cols[0,z+1,x+1] |= 1ul << (y+1);
-                            axis_cols[1,y+1,z+1] |= 1ul << (x+1);
-                            axis_cols[2,y+1,x+1] |= 1ul << (z+1);
+                            axis_cols[0, z + 1, x + 1] |= 1ul << (y + 1);
+                            axis_cols[1, y + 1, z + 1] |= 1ul << (x + 1);
+                            axis_cols[2, y + 1, x + 1] |= 1ul << (z + 1);
                         }
                     }
                 }
             }
 
             // For every main axis
-            for(int axis = 0; axis < 3; axis++)
+            for (int axis = 0; axis < 3; axis++)
             {
-                for(int x = 0; x < ChunkSizeP; x++)
+                for (int x = 0; x < ChunkSizeP; x++)
                 {
-                    for(int z = 0; z < ChunkSizeP; z++)
+                    for (int z = 0; z < ChunkSizeP; z++)
                     {
                         ulong col = axis_cols[axis, z, x];
-                        col_face_masks[2*axis+0, z, x] = col & ~(col << 1);
-                        col_face_masks[2*axis+1, z, x] = col & ~(col >> 1);
+                        col_face_masks[2 * axis + 0, z, x] = col & ~(col << 1);
+                        col_face_masks[2 * axis + 1, z, x] = col & ~(col >> 1);
                     }
                 }
             }
 
-            Dictionary<Material, Dictionary<int, uint[]>>[] data = new Dictionary<Material, Dictionary<int, uint[]>>[6] 
-            { 
-                new(), 
-                new(), 
-                new(), 
-                new(), 
-                new(), 
-                new() 
+            Dictionary<Material, Dictionary<int, uint[]>>[] data = new Dictionary<Material, Dictionary<int, uint[]>>[6]
+            {
+                new(),
+                new(),
+                new(),
+                new(),
+                new(),
+                new()
             };
 
             // For each of the 6 directions
-            for(byte axis2 = 0; axis2 < 6; axis2++)
+            for (byte axis2 = 0; axis2 < 6; axis2++)
             {
-                for(int z = 0; z < ChunkSize; z++)
+                for (int z = 0; z < ChunkSize; z++)
                 {
-                    for(int x = 0; x < ChunkSize; x++)
+                    for (int x = 0; x < ChunkSize; x++)
                     {
-                        int col_index = 1 + x + ((z+1) * ChunkSizeP) + ChunkSizeP2 * axis2;
+                        int col_index = 1 + x + ((z + 1) * ChunkSizeP) + ChunkSizeP2 * axis2;
 
                         ulong col = col_face_masks[axis2, z + 1, x + 1];
                         col >>= 1;
@@ -295,20 +306,20 @@ namespace EvroDev.BacklotUtilities.Voxels
 
                             col &= col - 1;
 
-                            Vector3Int voxelPos = new (x, z, y);
+                            Vector3Int voxelPos = new(x, z, y);
 
                             switch (axis2)
                             {
-                                case(0):
+                                case (0):
                                     voxelPos = new Vector3Int(x, y, z);
                                     break;
-                                case(1):
+                                case (1):
                                     voxelPos = new Vector3Int(x, y, z);
                                     break;
-                                case(2):
+                                case (2):
                                     voxelPos = new Vector3Int(y, z, x);
                                     break;
-                                case(3):
+                                case (3):
                                     voxelPos = new Vector3Int(y, z, x);
                                     break;
                             }
@@ -325,7 +336,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                             };
                             Material voxelID = currentVoxel.GetMaterial((FaceDirection)facingDirection);
 
-                            if(voxelID == null)
+                            if (voxelID == null)
                             {
                                 voxelID = BacklotManager.DefaultGridMaterial();
                             }
@@ -354,7 +365,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             {
                 Dictionary<Material, Dictionary<int, uint[]>> block_mat_data = data[axis];
 
-                foreach(var material in block_mat_data.Keys)
+                foreach (var material in block_mat_data.Keys)
                 {
                     var axis_plane = block_mat_data[material];
 
@@ -370,34 +381,59 @@ namespace EvroDev.BacklotUtilities.Voxels
                 }
             }
 
-            if (backlotsParent == null)
+            if (backlotsParent != null)
+            {
+#if UNITY_EDITOR
+                if (!Application.isPlaying)
+                {
+                    // Defer the destruction to avoid OnValidate timing issues
+                    EditorApplication.delayCall += () =>
+                    {
+                        DestroyImmediate(backlotsParent.gameObject);
+
+                        GameObject backParent = new GameObject("Generated Backlots");
+                        backParent.transform.parent = transform;
+                        backParent.transform.localPosition = Vector3.zero;
+                        backlotsParent = backParent.transform;
+
+                        foreach (var backlot in backlotGenResults)
+                        {
+                            Debug.Log(backlot.scale);
+                            var gridwall = BacklotManager.FindGridWall(backlot.scale);
+                            if (gridwall != null)
+                            {
+                                GameObject inst = PrefabUtility.InstantiatePrefab(gridwall, backlotsParent) as GameObject;
+                                inst.GetComponentInChildren<MeshRenderer>().sharedMaterial = backlot.material;
+                                inst.transform.localPosition = backlot.localPos;
+                                inst.transform.rotation = backlot.rotation;
+                            }
+                        }
+                        isDirty = false;
+                    };
+                }
+#endif
+            }
+            else
             {
                 GameObject backParent = new GameObject("Generated Backlots");
                 backParent.transform.parent = transform;
                 backParent.transform.localPosition = Vector3.zero;
                 backlotsParent = backParent.transform;
-            }
-            else
-            {
-                for (int c = backlotsParent.childCount - 1; c >= 0; c--)
-                {
-                    DestroyImmediate(backlotsParent.GetChild(c).gameObject);
-                }
-            }
 
-            foreach (var backlot in backlotGenResults)
-            {
-                Debug.Log(backlot.scale);
-                var gridwall = BacklotManager.FindGridWall(backlot.scale);
-                if(gridwall != null)
+                foreach (var backlot in backlotGenResults)
                 {
-                    GameObject inst = PrefabUtility.InstantiatePrefab(gridwall, backlotsParent) as GameObject;
-                    inst.GetComponentInChildren<MeshRenderer>().sharedMaterial = backlot.material;
-                    inst.transform.localPosition = backlot.localPos;
-                    inst.transform.rotation = backlot.rotation;
+                    Debug.Log(backlot.scale);
+                    var gridwall = BacklotManager.FindGridWall(backlot.scale);
+                    if (gridwall != null)
+                    {
+                        GameObject inst = PrefabUtility.InstantiatePrefab(gridwall, backlotsParent) as GameObject;
+                        inst.GetComponentInChildren<MeshRenderer>().sharedMaterial = backlot.material;
+                        inst.transform.localPosition = backlot.localPos;
+                        inst.transform.rotation = backlot.rotation;
+                    }
                 }
+                isDirty = false;
             }
-            isDirty = false;
         }
 
         [ContextMenu("Extrude Selection (Debug)")]
@@ -407,9 +443,9 @@ namespace EvroDev.BacklotUtilities.Voxels
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
             foreach (GameObject g in Selection.gameObjects)
             {
-                if(g.TryGetComponent(out SelectableFace face))
+                if (g.TryGetComponent(out SelectableFace face))
                 {
-                    if(face.chunk != this) continue;
+                    if (face.chunk != this) continue;
                     Vector3Int p = face.GetTargetAir();
                     Voxel newVox = new Voxel();
                     newVox.SetMaterial(face.FaceDirection, face.material);
@@ -417,20 +453,23 @@ namespace EvroDev.BacklotUtilities.Voxels
                     newSelection.Add(new VoxelFaceSelection(p, face.FaceDirection));
                 }
             }
-            RegenGizmo(newSelection);
             isDirty = true;
+            RegenGizmo(newSelection);
 #endif
         }
 
         public void ExtrudeFaceGizmo(SelectableFace face)
         {
-            if(face.chunk != this) return;
+            if (face.chunk != this) return;
+
+            List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
             Vector3Int p = face.GetTargetAir();
             Voxel newVox = new Voxel();
             newVox.SetMaterial(face.FaceDirection, face.material);
             SetVoxel(p.x, p.y, p.z, newVox);
-            RegenGizmo();
+            newSelection.Add(new VoxelFaceSelection(p, face.FaceDirection));
             isDirty = true;
+            RegenGizmo(newSelection);
         }
 
         [ContextMenu("Intrude Selection (Debug)")]
@@ -440,9 +479,9 @@ namespace EvroDev.BacklotUtilities.Voxels
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
             foreach (GameObject g in Selection.gameObjects)
             {
-                if(g.TryGetComponent(out SelectableFace face))
+                if (g.TryGetComponent(out SelectableFace face))
                 {
-                    if(face.chunk != this) continue;
+                    if (face.chunk != this) continue;
                     Vector3Int newFace = face.GetBackwardPos();
                     SafeSampleVoxel(newFace.x, newFace.y, newFace.z).SetMaterial(face.FaceDirection, face.material);
                     Vector3Int p = face.voxelPosition;
@@ -450,20 +489,22 @@ namespace EvroDev.BacklotUtilities.Voxels
                     newSelection.Add(new VoxelFaceSelection(newFace, face.FaceDirection));
                 }
             }
-            RegenGizmo(newSelection);
             isDirty = true;
+            RegenGizmo(newSelection);
 #endif
         }
 
         public void IntrudeFaceGizmo(SelectableFace face)
         {
-            if(face.chunk != this) return;
+            if (face.chunk != this) return;
+            List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
             Vector3Int newFace = face.GetBackwardPos();
             SafeSampleVoxel(newFace.x, newFace.y, newFace.z).SetMaterial(face.FaceDirection, face.material);
             Vector3Int p = face.voxelPosition;
             SafeSampleVoxel(p.x, p.y, p.z).IsEmpty = true;
-            RegenGizmo();
+            newSelection.Add(new VoxelFaceSelection(newFace, face.FaceDirection));
             isDirty = true;
+            RegenGizmo(newSelection);
         }
 
         public void PaintSelection(Material m)
@@ -472,9 +513,9 @@ namespace EvroDev.BacklotUtilities.Voxels
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
             foreach (GameObject g in Selection.gameObjects)
             {
-                if(g.TryGetComponent(out SelectableFace face))
+                if (g.TryGetComponent(out SelectableFace face))
                 {
-                    if(face.chunk != this) continue;
+                    if (face.chunk != this) continue;
 
                     Vector3Int p = face.voxelPosition;
                     Voxel voxel = SafeSampleVoxel(p.x, p.y, p.z);
@@ -482,8 +523,8 @@ namespace EvroDev.BacklotUtilities.Voxels
                     newSelection.Add(new VoxelFaceSelection(p, face.FaceDirection));
                 }
             }
-            RegenGizmo(newSelection);
             isDirty = true;
+            RegenGizmo(newSelection);
 #endif
         }
 
@@ -491,7 +532,7 @@ namespace EvroDev.BacklotUtilities.Voxels
         {
             Gizmos.color = Color.white;
             Vector3 size = new Vector3(ChunkSize, ChunkSize, ChunkSize);
-            Gizmos.DrawWireCube(transform.position + (size/2), size);
+            Gizmos.DrawWireCube(transform.position + (size / 2), size);
         }
     }
 
@@ -552,7 +593,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             return count;
         }
 
-        public static int[] ValidLengths = new int[]
+        public static List<int> ValidLengths = new List<int>
         {
             0,
             1,
@@ -562,36 +603,40 @@ namespace EvroDev.BacklotUtilities.Voxels
             5,
             6,
             8,
-            10
-            // Fill out later
+            10,
+            12,
+            14,
+            16,
+            18,
+            20
         };
 
         public static int GetValidBacklotLength(int realLength)
         {
-            if(ValidLengths.Contains(realLength)) return realLength;
+            if (ValidLengths.Contains(realLength)) return realLength;
 
-            for(int i = 1; i < ValidLengths.Length; i++)
+            for (int i = 1; i < ValidLengths.Count; i++)
             {
-                if(ValidLengths[i-1] < realLength && ValidLengths[i] > realLength)
+                if (ValidLengths[i - 1] < realLength && ValidLengths[i] > realLength)
                 {
-                    return ValidLengths[i-1];
+                    return ValidLengths[i - 1];
                 }
             }
-            return ValidLengths[ValidLengths.Length-1];
+            return ValidLengths[ValidLengths.Count - 1];
         }
 
         public static List<ResultingBacklot> GreedTheGrid(uint[] data, Material theMat, FaceDirection axis, int axisPos)
         {
             List<ResultingBacklot> outpt = new List<ResultingBacklot>();
-            for(int x = 0; x < data.Length; x++)
+            for (int x = 0; x < data.Length; x++)
             {
                 int y = 0;
-                while(y < 32)
+                while (y < 32)
                 {
                     y += CountTrailingZeros(data[x] >> y);
                     int height = GetValidBacklotLength(CountTrailingZeros(~(data[x] >> y)));
 
-                    if(height == 0) break;
+                    if (height == 0) break;
 
                     uint h_as_mask = (1u << height) - 1;
                     uint mask = h_as_mask << y;
@@ -600,7 +645,7 @@ namespace EvroDev.BacklotUtilities.Voxels
 
                     while (x + w < data.Length)
                     {
-                        long nextRow = (data[x+w] >> y) & h_as_mask;
+                        long nextRow = (data[x + w] >> y) & h_as_mask;
                         bool brokenInBigJump = false;
 
                         if (nextRow != h_as_mask)
@@ -609,18 +654,33 @@ namespace EvroDev.BacklotUtilities.Voxels
                         // if the next one is NOT a valid
                         // 6, 8
                         // If w = 6 (cant do 7 because not valid)
-                        if(!ValidLengths.Contains(w+1))
+                        if (!ValidLengths.Contains(w + 1))
                         {
                             int validW = w; // w = 6
-                            // If it can, &= ~mask them all
-                            // If it cant, break (out of all ugh)
-                            int nextValidSize = ValidLengths[ValidLengths.IndexOf(w)+1];
+                                            // If it can, &= ~mask them all
+                                            // If it cant, break (out of all ugh)
+                            int nextValidIndex = ValidLengths.IndexOf(w) + 1;
+                            if (nextValidIndex >= ValidLengths.Count)
+                            {
+                                brokenInBigJump = true;
+                                break;
+                            }
+
+                            int nextValidSize = ValidLengths[ValidLengths.IndexOf(w) + 1];
                             // See if it can extend ALL THE WAY to the next valid one
                             // Will break out after checking extraW as 2, bc 8 is contained
-                            for(int extraW = 1; !ValidLengths.Contains(w+extraW-1); extraW++)
+                            for (int extraW = 1; !ValidLengths.Contains(w + extraW); extraW++)
                             {
                                 // checks at 7
                                 // checks at 8
+
+                                if (x + w + extraW >= data.Length)
+                                {
+                                    w = validW;
+                                    brokenInBigJump = true;
+                                    break;
+                                }
+
                                 long nextNextRow = (data[x + w + extraW] >> y) & h_as_mask;
                                 if (nextNextRow != h_as_mask || x + w + extraW > data.Length - 1)
                                 {
@@ -628,31 +688,32 @@ namespace EvroDev.BacklotUtilities.Voxels
                                     brokenInBigJump = true;
                                     break;
                                 }
-                                else if(ValidLengths.Contains(w+extraW))
+                                else if (ValidLengths.Contains(w + extraW))
                                 {
                                     // Should happen when evaluating at 8, and none of the previous were broken
                                     // Means it can extend all the way to the next valid length. Set w to the new value and &= ~ the stuffs
 
-                                    for(int g = 0; g < extraW; g++)
+                                    for (int g = 0; g < extraW; g++)
                                     {
-                                        data[x+w+g] &= ~mask;
+                                        data[x + w + g] &= ~mask;
                                     }
-                                    w += extraW;
+                                    w += extraW - 1;
                                     break;
                                 }
                                 // im actually dying this code hurts me
                             }
                         }
 
-                        if(brokenInBigJump) break;
+                        if (brokenInBigJump) break;
 
-                        data[x+w] &= ~mask;
+                        data[x + w] &= ~mask;
                         w += 1;
                     }
 
                     Vector2 scale = new Vector2(w, height);
 
-                    var backlot = new ResultingBacklot() {
+                    var backlot = new ResultingBacklot()
+                    {
                         planePos = new Vector2(x, y) + (scale / 2),
                         scale = scale,
                         material = theMat,
