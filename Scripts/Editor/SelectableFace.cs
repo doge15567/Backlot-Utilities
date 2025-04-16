@@ -29,40 +29,29 @@ namespace EvroDev.BacklotUtilities.Voxels
         {
             if(chunk.manager.visualizationMode != VisualizationMode.Gizmos) return;
 
-            Vector3 centerPos = transform.parent.position + voxelPosition + (Vector3.one / 2);
-            Vector3 scale = Vector3.one;
-            if (FaceDirection == FaceDirection.Up)
-            {
-                centerPos += new Vector3(0, 0.5f, 0);
-                scale = new Vector3(0.9f, 0.01f, 0.9f);
-            }
-            else if (FaceDirection == FaceDirection.Down)
-            {
-                centerPos += new Vector3(0, -0.5f, 0);
-                scale = new Vector3(0.9f, 0.01f, 0.9f);
-            }
-            else if (FaceDirection == FaceDirection.Forward)
-            {
-                centerPos += new Vector3(0, 0, 0.5f);
-                scale = new Vector3(0.9f, 0.9f, 0.01f);
-            }
-            else if (FaceDirection == FaceDirection.Backward)
-            {
-                centerPos += new Vector3(0, 0, -0.5f);
-                scale = new Vector3(0.9f, 0.9f, 0.01f);
-            }
-            else if (FaceDirection == FaceDirection.Right)
-            {
-                centerPos += new Vector3(0.5f, 0, 0);
-                scale = new Vector3(0.01f, 0.9f, 0.9f);
-            }
-            else if (FaceDirection == FaceDirection.Left)
-            {
-                centerPos += new Vector3(-0.5f, 0, 0);
-                scale = new Vector3(0.01f, 0.9f, 0.9f);
-            }
+            transform.position = transform.parent.position + voxelPosition + (Vector3.one / 2);
 
-            transform.position = centerPos;
+            transform.position += FaceDirection switch 
+            {
+                FaceDirection.Up => new Vector3(0, 0.5f, 0),
+                FaceDirection.Down => new Vector3(0, -0.5, 0),
+                FaceDirection.Forward => new Vector3(0, 0, 0.5f),
+                FaceDirection.Backward => new Vector3(0, 0, -0.5f),
+                FaceDirection.Right => new Vector3(0.5f, 0, 0),
+                FaceDirection.Left => new Vector3(-0.5f, 0, 0),
+                _ => Vector3.zero
+            };
+
+            Vector3 scale = FaceDirection switch 
+            {
+                FaceDirection.Up => new Vector3(0.9f, 0.01f, 0.9f),
+                FaceDirection.Down => new Vector3(0.9f, 0.01f, 0.9f),
+                FaceDirection.Forward => new Vector3(0.9f, 0.9f, 0.01f),
+                FaceDirection.Backward => new Vector3(0.9f, 0.9f, 0.01f),
+                FaceDirection.Right => new Vector3(0.01f, 0.9f, 0.9f),
+                FaceDirection.Left => new Vector3(0.01f, 0.9f, 0.9f),
+                _ => Vector3.zero
+            };
 
             Gizmos.color = new Color(1, 1, 1, 0.1f);
             if (material)
@@ -83,38 +72,29 @@ namespace EvroDev.BacklotUtilities.Voxels
         {
             if(chunk.manager.visualizationMode != VisualizationMode.Gizmos) return;
 
-            Vector3 centerPos = transform.parent.position + voxelPosition + (Vector3.one / 2);
-            Vector3 scale = Vector3.one;
-            if (FaceDirection == FaceDirection.Up)
+            transform.position = transform.parent.position + voxelPosition + (Vector3.one / 2);
+            
+            transform.position += FaceDirection switch 
             {
-                centerPos += new Vector3(0, 0.5f, 0);
-                scale = new Vector3(0.9f, 0.01f, 0.9f);
-            }
-            else if (FaceDirection == FaceDirection.Down)
+                FaceDirection.Up => new Vector3(0, 0.5f, 0),
+                FaceDirection.Down => new Vector3(0, -0.5, 0),
+                FaceDirection.Forward => new Vector3(0, 0, 0.5f),
+                FaceDirection.Backward => new Vector3(0, 0, -0.5f),
+                FaceDirection.Right => new Vector3(0.5f, 0, 0),
+                FaceDirection.Left => new Vector3(-0.5f, 0, 0),
+                _ => Vector3.zero
+            };
+
+            Vector3 scale = FaceDirection switch 
             {
-                centerPos += new Vector3(0, -0.5f, 0);
-                scale = new Vector3(0.9f, 0.01f, 0.9f);
-            }
-            else if (FaceDirection == FaceDirection.Forward)
-            {
-                centerPos += new Vector3(0, 0, 0.5f);
-                scale = new Vector3(0.9f, 0.9f, 0.01f);
-            }
-            else if (FaceDirection == FaceDirection.Backward)
-            {
-                centerPos += new Vector3(0, 0, -0.5f);
-                scale = new Vector3(0.9f, 0.9f, 0.01f);
-            }
-            else if (FaceDirection == FaceDirection.Right)
-            {
-                centerPos += new Vector3(0.5f, 0, 0);
-                scale = new Vector3(0.01f, 0.9f, 0.9f);
-            }
-            else if (FaceDirection == FaceDirection.Left)
-            {
-                centerPos += new Vector3(-0.5f, 0, 0);
-                scale = new Vector3(0.01f, 0.9f, 0.9f);
-            }
+                FaceDirection.Up => new Vector3(1f, 0.01f, 1f),
+                FaceDirection.Down => new Vector3(1f, 0.01f, 1f),
+                FaceDirection.Forward => new Vector3(1f, 1f, 0.01f),
+                FaceDirection.Backward => new Vector3(1f, 1f, 0.01f),
+                FaceDirection.Right => new Vector3(0.01f, 1f, 1f),
+                FaceDirection.Left => new Vector3(0.01f, 1f, 1f),
+                _ => Vector3.one
+            };
 
             Gizmos.color = new Color(1, 1, 1, 0.3f);
             if (material)
@@ -135,60 +115,30 @@ namespace EvroDev.BacklotUtilities.Voxels
 
         public Vector3Int GetTargetAir()
         {
-            if (FaceDirection == FaceDirection.Up)
+            return FaceDirection switch
             {
-                return voxelPosition + new Vector3Int(0, 1, 0);
+                FaceDirection.Up => voxelPosition + new Vector3Int(0, 1, 0),
+                FaceDirection.Down => voxelPosition + new Vector3Int(0, -1, 0),
+                FaceDirection.Forward => voxelPosition + new Vector3Int(0, 0, 1),
+                FaceDirection.Backward => voxelPosition + new Vector3Int(0, 0, -1),
+                FaceDirection.Right => voxelPosition + new Vector3Int(1, 0, 0),
+                FaceDirection.Left => voxelPosition + new Vector3Int(-1, 0, 0),
+                _ => voxelPosition
             }
-            else if (FaceDirection == FaceDirection.Down)
-            {
-                return voxelPosition + new Vector3Int(0, -1, 0);
-            }
-            else if (FaceDirection == FaceDirection.Forward)
-            {
-                return voxelPosition + new Vector3Int(0, 0, 1);
-            }
-            else if (FaceDirection == FaceDirection.Backward)
-            {
-                return voxelPosition + new Vector3Int(0, 0, -1);
-            }
-            else if (FaceDirection == FaceDirection.Left)
-            {
-                return voxelPosition + new Vector3Int(-1, 0, 0);
-            }
-            else if (FaceDirection == FaceDirection.Right)
-            {
-                return voxelPosition + new Vector3Int(1, 0, 0);
-            }
-            return voxelPosition;
         }
 
         public Vector3Int GetBackwardPos()
         {
-            if (FaceDirection == FaceDirection.Up)
+            return FaceDirection switch
             {
-                return voxelPosition + new Vector3Int(0, -1, 0);
+                FaceDirection.Up => voxelPosition + new Vector3Int(0, -1, 0),
+                FaceDirection.Down => voxelPosition + new Vector3Int(0, 1, 0),
+                FaceDirection.Forward => voxelPosition + new Vector3Int(0, 0, -1),
+                FaceDirection.Backward => voxelPosition + new Vector3Int(0, 0, 1),
+                FaceDirection.Right => voxelPosition + new Vector3Int(-1, 0, 0),
+                FaceDirection.Left => voxelPosition + new Vector3Int(1, 0, 0),
+                _ => voxelPosition
             }
-            else if (FaceDirection == FaceDirection.Down)
-            {
-                return voxelPosition + new Vector3Int(0, 1, 0);
-            }
-            else if (FaceDirection == FaceDirection.Forward)
-            {
-                return voxelPosition + new Vector3Int(0, 0, -1);
-            }
-            else if (FaceDirection == FaceDirection.Backward)
-            {
-                return voxelPosition + new Vector3Int(0, 0, 1);
-            }
-            else if (FaceDirection == FaceDirection.Left)
-            {
-                return voxelPosition + new Vector3Int(1, 0, 0);
-            }
-            else if (FaceDirection == FaceDirection.Right)
-            {
-                return voxelPosition + new Vector3Int(-1, 0, 0);
-            }
-            return voxelPosition;
         }
 
         public void Extrude(bool add)
