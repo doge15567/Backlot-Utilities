@@ -151,29 +151,36 @@ namespace EvroDev.BacklotUtilities.Voxels
                         Voxel thisVoxel = SafeSampleVoxel(x, y, z);
                         if (thisVoxel == null || thisVoxel.IsEmpty) continue;
 
-                        if (GetVoxel(x, y + 1, z).IsEmpty)
+                        if(thisVoxel.type == VoxelType.Wall)
                         {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Up, thisVoxel, this);
+                            if (GetVoxel(x, y + 1, z).IsEmpty)
+                            {
+                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Up, thisVoxel, this);
+                            }
+                            if (GetVoxel(x, y - 1, z).IsEmpty)
+                            {
+                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Down, thisVoxel, this);
+                            }
+                            if (GetVoxel(x, y, z + 1).IsEmpty)
+                            {
+                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Forward, thisVoxel, this);
+                            }
+                            if (GetVoxel(x, y, z - 1).IsEmpty)
+                            {
+                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Backward, thisVoxel, this);
+                            }
+                            if (GetVoxel(x + 1, y, z).IsEmpty)
+                            {
+                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Right, thisVoxel, this);
+                            }
+                            if (GetVoxel(x - 1, y, z).IsEmpty)
+                            {
+                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Left, thisVoxel, this);
+                            }
                         }
-                        if (GetVoxel(x, y - 1, z).IsEmpty)
+                        else if(thisVoxel.type == VoxelType.CornerConcave1m)
                         {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Down, thisVoxel, this);
-                        }
-                        if (GetVoxel(x, y, z + 1).IsEmpty)
-                        {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Forward, thisVoxel, this);
-                        }
-                        if (GetVoxel(x, y, z - 1).IsEmpty)
-                        {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Backward, thisVoxel, this);
-                        }
-                        if (GetVoxel(x + 1, y, z).IsEmpty)
-                        {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Right, thisVoxel, this);
-                        }
-                        if (GetVoxel(x - 1, y, z).IsEmpty)
-                        {
-                            SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Left, thisVoxel, this);
+                            // todo gizmo
                         }
                     }
                 }
@@ -277,7 +284,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 }
             }
 
-            Dictionary<Material, Dictionary<int, uint[]>>[] data = new Dictionary<Material, Dictionary<int, uint[]>>[6]
+            Dictionary<VoxelType, Dictionary<Material, Dictionary<int, uint[]>>>[] data = new Dictionary<VoxelType, Dictionary<Material, Dictionary<int, uint[]>>>[6]
             {
                 new(),
                 new(),
@@ -335,6 +342,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                                 _ => axis2,
                             };
                             Material voxelID = currentVoxel.GetMaterial((FaceDirection)facingDirection);
+                            VoxelType type = currentVoxel.type;
 
                             if (voxelID == null)
                             {
@@ -343,15 +351,19 @@ namespace EvroDev.BacklotUtilities.Voxels
                             //int voxelID = 0;
 
                             // WHAT THE FUCK :fireEmoji:
-                            if (!data[axis2].ContainsKey(voxelID))
+                            if (!data[axis2].ContainsKey(type))
                             {
-                                data[axis2].Add(voxelID, new Dictionary<int, uint[]>());
+                                data[axis2].Add(type, new Dictionary<Material, Dictionary<int, uint[]>>());
                             }
-                            if (!data[axis2][voxelID].ContainsKey(y))
+                            if (!data[axis2][type].ContainsKey(voxelID))
                             {
-                                data[axis2][voxelID].Add(y, new uint[ChunkSize]);
+                                data[axis2][type].Add(voxelID, new Dictionary<int, uint[]>());
                             }
-                            data[axis2][voxelID][y][x] |= 1u << z;
+                            if (!data[axis2][type][voxelID].ContainsKey(y))
+                            {
+                                data[axis2][type][voxelID].Add(y, new uint[ChunkSize]);
+                            }
+                            data[axis2][type][voxelID][y][x] |= 1u << z;
                         }
                     }
                 }
@@ -363,20 +375,26 @@ namespace EvroDev.BacklotUtilities.Voxels
 
             for (int axis = 0; axis < data.Length; axis++)
             {
-                Dictionary<Material, Dictionary<int, uint[]>> block_mat_data = data[axis];
-
-                foreach (var material in block_mat_data.Keys)
+                foreach(var type in data[axis].Keys)
                 {
-                    var axis_plane = block_mat_data[material];
+                    if(type != VoxelType.Wall)
+                        continue;
+                    
+                    Dictionary<Material, Dictionary<int, uint[]>> block_mat_data = data[axis][type];
 
-                    foreach (var axisPos in axis_plane.Keys)
+                    foreach (var material in block_mat_data.Keys)
                     {
-                        uint[] plane = axis_plane[axisPos];
+                        var axis_plane = block_mat_data[material];
 
-                        // now FINALLY greedymesh it
-                        Debug.Log($"Axis: {axis_plane}\nAxis Pos: {axisPos}\n\"Axis plane int: {plane[0]}");
-                        var generatedGrids = GreedyGridwall.GreedTheGrid(plane, material, (FaceDirection)axis, axisPos);
-                        backlotGenResults.AddRange(generatedGrids);
+                        foreach (var axisPos in axis_plane.Keys)
+                        {
+                            uint[] plane = axis_plane[axisPos];
+
+                            // now FINALLY greedymesh it
+                            Debug.Log($"Axis: {axis_plane}\nAxis Pos: {axisPos}\n\"Axis plane int: {plane[0]}");
+                            var generatedGrids = GreedyGridwall.GreedTheGrid(plane, material, (FaceDirection)axis, axisPos);
+                            backlotGenResults.AddRange(generatedGrids);
+                        }
                     }
                 }
             }
@@ -458,7 +476,7 @@ namespace EvroDev.BacklotUtilities.Voxels
 #endif
         }
 
-        public void ExtrudeFaceGizmo(SelectableFace face)
+        public void ExtrudeFaceGizmo(SelectableFace face, int length = 1)
         {
             if (face.chunk != this) return;
 
@@ -536,11 +554,19 @@ namespace EvroDev.BacklotUtilities.Voxels
         }
     }
 
+    [System.Flags]
+    public enum VoxelType
+    {
+        Wall = 1,
+        CornerConcave1m = 2,
+        CornerConcave2m = 4,
+    }
 
     [System.Serializable]
     public class Voxel
     {
         public bool IsEmpty = false;
+        public VoxelType type = VoxelType.Wall;
         [SerializeField]
         private Material[] _materials = new Material[6];
 
@@ -548,7 +574,6 @@ namespace EvroDev.BacklotUtilities.Voxels
         {
             _materials[(int)dir] = mat;
         }
-
 
         public Material GetMaterial(FaceDirection dir)
         {
