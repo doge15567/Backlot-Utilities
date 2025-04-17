@@ -484,11 +484,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 if (g.TryGetComponent(out SelectableFace face))
                 {
                     if (face.chunk != this) continue;
-                    Vector3Int p = face.GetTargetAir();
-                    Voxel newVox = new Voxel();
-                    newVox.SetMaterial(face.FaceDirection, face.material);
-                    SetVoxel(p.x, p.y, p.z, newVox);
-                    newSelection.Add(new VoxelFaceSelection(p, face.FaceDirection));
+                    Internal_ExtrudeFace(face, newSelection);
                 }
             }
             isDirty = true;
@@ -502,8 +498,6 @@ namespace EvroDev.BacklotUtilities.Voxels
 
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
 
-            Vector3Int p = face.GetTargetAir();
-
             List<Vector3Int> gizmosToUpdate = new List<Vector3Int>() {
                 face.voxelPosition,
                 face.voxelPosition + Vector3Int.forward,
@@ -514,31 +508,33 @@ namespace EvroDev.BacklotUtilities.Voxels
                 face.voxelPosition + Vector3Int.down
             };
 
-            Voxel newVox = new Voxel();
-            newVox.SetMaterial(face.FaceDirection, face.material);
-            SetVoxel(p.x, p.y, p.z, newVox);
-
-            newSelection.Add(new VoxelFaceSelection(p, face.FaceDirection));
+            Internal_ExtrudeFace(face, newSelection);
 
             isDirty = true;
             RegenGizmo(newSelection, gizmosToUpdate);
         }
 
-        public void ExtrudeFaceGizmos(SelectableFace[] faces)
+        public void ExtrudeFaceGizmos(List<SelectableFace> faces)
         {
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
             foreach (SelectableFace face in faces)
             {
                 if (face.chunk != this) continue;
 
-                Vector3Int p = face.GetTargetAir();
-                Voxel newVox = new Voxel();
-                newVox.SetMaterial(face.FaceDirection, face.material);
-                SetVoxel(p.x, p.y, p.z, newVox);
-                newSelection.Add(new VoxelFaceSelection(p, face.FaceDirection));
-                isDirty = true;
+                Internal_ExtrudeFace(face, newSelection);
             }
+
+            isDirty = true;
             RegenGizmo(newSelection);
+        }
+
+        void Internal_ExtrudeFace(SelectableFace face, List<VoxelFaceSelection> faceSelectionToAppend)
+        {
+            Vector3Int p = face.GetTargetAir();
+            Voxel newVox = new Voxel();
+            newVox.SetMaterial(face.FaceDirection, face.material);
+            SetVoxel(p.x, p.y, p.z, newVox);
+            faceSelectionToAppend.Add(new VoxelFaceSelection(p, face.FaceDirection));
         }
 
         [ContextMenu("Intrude Selection (Debug)")]
@@ -551,11 +547,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 if (g.TryGetComponent(out SelectableFace face))
                 {
                     if (face.chunk != this) continue;
-                    Vector3Int newFace = face.GetBackwardPos();
-                    SafeSampleVoxel(newFace.x, newFace.y, newFace.z).SetMaterial(face.FaceDirection, face.material);
-                    Vector3Int p = face.voxelPosition;
-                    SafeSampleVoxel(p.x, p.y, p.z).IsEmpty = true;
-                    newSelection.Add(new VoxelFaceSelection(newFace, face.FaceDirection));
+                    Internal_IntrudeFace(face, newSelection);
                 }
             }
             isDirty = true;
@@ -569,8 +561,6 @@ namespace EvroDev.BacklotUtilities.Voxels
 
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
 
-            Vector3Int newFace = face.GetBackwardPos();
-
             List<Vector3Int> gizmosToUpdate = new List<Vector3Int>() {
                 face.voxelPosition,
                 face.voxelPosition + Vector3Int.forward,
@@ -581,14 +571,35 @@ namespace EvroDev.BacklotUtilities.Voxels
                 face.voxelPosition + Vector3Int.down
             };
 
+            Internal_IntrudeFace(face, newSelection);
+
+            isDirty = true;
+            RegenGizmo(newSelection, gizmosToUpdate);
+        }
+
+        public void IntrudeFaceGizmos(List<SelectableFace> faces)
+        {
+            List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
+
+            foreach (SelectableFace face in faces)
+            {
+                if (face.chunk != this) continue;
+
+                Internal_IntrudeFace(face, newSelection);
+            }
+
+            isDirty = true;
+            RegenGizmo(newSelection);
+        }
+
+        private void Internal_IntrudeFace(SelectableFace face, List<VoxelFaceSelection> faceSelectionToAppend)
+        {
+            Vector3Int newFace = face.GetBackwardPos();
             SafeSampleVoxel(newFace.x, newFace.y, newFace.z).SetMaterial(face.FaceDirection, face.material);
             Vector3Int p = face.voxelPosition;
             SafeSampleVoxel(p.x, p.y, p.z).IsEmpty = true;
 
-            newSelection.Add(new VoxelFaceSelection(newFace, face.FaceDirection));
-
-            isDirty = true;
-            RegenGizmo(newSelection, gizmosToUpdate);
+            faceSelectionToAppend.Add(new VoxelFaceSelection(newFace, face.FaceDirection));
         }
 
         public void PaintSelection(Material m)
@@ -610,6 +621,82 @@ namespace EvroDev.BacklotUtilities.Voxels
             isDirty = true;
             RegenGizmo(newSelection);
 #endif
+        }
+
+        public void FloodFillSelect(List<SelectableFace> startingFaces)
+        {
+            List<SelectableFace> newFounds = new List<SelectableFace>();
+            foreach(SelectableFace face in startingFace)
+            {
+                foreach (VoxelFaceSelection selection in FloodFillVoxels(face.voxelPosition, face.FaceDirection))
+                {
+                    var matching = GetComponentsInChildren<SelectableFace>().Where(p => p.voxelPosition == selection.position && p.FaceDirection == selection.direction).ToArray();
+                    if (matching.Length > 0)
+                    {
+                        newFounds.Add(matching[0].gameObject);
+                    }
+                }
+            }
+            if (newFounds.Count != 0)
+            {
+                Selection.objects = Selection.gameObjects.Concat(newFounds).Distinct().ToArray();
+            }
+        }
+
+        List<VoxelFaceSelection> FloodFillVoxels(Vector3Int startingFace, FaceDirection targetDirection)
+        {
+            List<VoxelFaceSelection> outputFaces = newList<VoxelFaceSelection>();
+            HashSet<Vector3Int> visitedVoxels = new HashSet<Vector3Int>();
+            Queue<Vector3Int> Q = new Queue<Vector3Int>();
+
+            Q.Enqueue(startingFace);
+            visitedVoxels.Add(startingFace);
+
+            while(Q.Count > 0)
+            {
+                var n = Q.Dequeue();
+                outputFaces.Add(new VoxelFaceSelection(n, targetDirection));
+
+                Vector3Int[] directions = targetDirection switch
+                {
+                    FaceDirection.Forward => new Vector3Int[] { Vector3Int.up, Vector3Int.down, Vector3Int.left, Vector3Int.right },
+                    FaceDirection.Backward => new Vector3Int[] { Vector3Int.up, Vector3Int.down, Vector3Int.left, Vector3Int.right },
+                    FaceDirection.Up => new Vector3Int[] { Vector3Int.forward, Vector3Int.backward, Vector3Int.left, Vector3Int.right },
+                    FaceDirection.Down => new Vector3Int[] { Vector3Int.forward, Vector3Int.backward, Vector3Int.left, Vector3Int.right },
+                    FaceDirection.Left => new Vector3Int[] { Vector3Int.up, Vector3Int.down, Vector3Int.left, Vector3Int.right },
+                    FaceDirection.Right => new Vector3Int[] { Vector3Int.up, Vector3Int.down, Vector3Int.forward, Vector3Int.backward },
+                    _ => new Vector3Int[]
+                };
+
+                Vector3Int scanDirection = targetDirection switch
+                {
+                    FaceDirection.Forward => Vector3Int.forward,
+                    FaceDirection.Backward => Vector3Int.backward,
+                    FaceDirection.Up => Vector3Int.up,
+                    FaceDirection.Down => Vector3Int.down,
+                    FaceDirection.Left => Vector3Int.left,
+                    FaceDirection.Right => Vector3Int.right,
+                    _ => Vector3Int.forward
+                };
+
+                foreach(Vector3Int direction in directions)
+                {
+                    Vector3Int neighborPos = n + direction;
+                    Vector3Int faceNeighbor = neighborPos + scanDirection;
+                    Voxel current = SafeSampleVoxel(neighborPos.x, neighborPos.y, neighborPos.z);
+
+                    if(current.IsEmpty) continue;
+                    if(visitedVoxels.Contains(neighborPos)) continue; 
+
+                    Voxel inTheFace = SafeSampleVoxel(faceNeighbor.x, faceNeighbor.y, faceNeighbor.z);
+                    if(inTheFace.IsEmpty)
+                    {
+                        queue.Enqueue(neighborPos);
+                        visited.Add(neighborPos);
+                    }
+                }
+            }
+            return outputFaces;
         }
 
         void OnDrawGizmos()
