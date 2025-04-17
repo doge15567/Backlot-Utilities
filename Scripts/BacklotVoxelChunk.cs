@@ -116,7 +116,7 @@ namespace EvroDev.BacklotUtilities.Voxels
         }
 
         [ContextMenu("Regen Gizmos")]
-        void RegenGizmo()
+        void RegenGizmo(List<Vector3Int> onlyRegen)
         {
             if (!isDirty) return;
 
@@ -130,61 +130,76 @@ namespace EvroDev.BacklotUtilities.Voxels
             }
             else
             {
-                for (int c = tempGizmosParent.childCount - 1; c >= 0; c--)
-                {
-                    DestroyImmediate(tempGizmosParent.GetChild(c).gameObject);
-                }
                 foreach (SelectableFace f in GetComponentsInChildren<SelectableFace>())
                 {
-                    DestroyImmediate(f.gameObject);
+                    if(onlyRegen.Count == 0 || onlyRegen.Contains(f.voxelPosition))
+                        DestroyImmediate(f.gameObject);
                 }
-                gizmoFaces.Clear();
             }
 
-
-            for (int x = 0; x < ChunkSize; x++)
+            if(onlyRegen.Count != 0)
             {
-                for (int y = 0; y < ChunkSize; y++)
+                foreach(Vector3Int pos in onlyRegen)
                 {
-                    for (int z = 0; z < ChunkSize; z++)
+                    GenerateGizmoFaces(pos.x, pos.y, pos.z);
+                }
+            }
+            else
+            {
+                for (int x = 0; x < ChunkSize; x++)
+                {
+                    for (int y = 0; y < ChunkSize; y++)
                     {
-                        Voxel thisVoxel = SafeSampleVoxel(x, y, z);
-                        if (thisVoxel == null || thisVoxel.IsEmpty) continue;
-
-                        if(thisVoxel.type == VoxelType.Wall)
+                        for (int z = 0; z < ChunkSize; z++)
                         {
-                            if (GetVoxel(x, y + 1, z).IsEmpty)
-                            {
-                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Up, thisVoxel, this);
-                            }
-                            if (GetVoxel(x, y - 1, z).IsEmpty)
-                            {
-                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Down, thisVoxel, this);
-                            }
-                            if (GetVoxel(x, y, z + 1).IsEmpty)
-                            {
-                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Forward, thisVoxel, this);
-                            }
-                            if (GetVoxel(x, y, z - 1).IsEmpty)
-                            {
-                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Backward, thisVoxel, this);
-                            }
-                            if (GetVoxel(x + 1, y, z).IsEmpty)
-                            {
-                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Right, thisVoxel, this);
-                            }
-                            if (GetVoxel(x - 1, y, z).IsEmpty)
-                            {
-                                SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Left, thisVoxel, this);
-                            }
-                        }
-                        else if(thisVoxel.type == VoxelType.CornerConcave1m)
-                        {
-                            // todo gizmo
+                            GenerateGizmoFaces(x, y, z);
                         }
                     }
                 }
             }
+
+            void GenerateGizmoFaces(int x, int y, int z)
+            {
+                Voxel thisVoxel = SafeSampleVoxel(x, y, z);
+                if (thisVoxel == null || thisVoxel.IsEmpty) return;
+
+                if (thisVoxel.type == VoxelType.Wall)
+                {
+                    if (GetVoxel(x, y + 1, z).IsEmpty)
+                    {
+                        SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Up, thisVoxel, this);
+                    }
+                    if (GetVoxel(x, y - 1, z).IsEmpty)
+                    {
+                        SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Down, thisVoxel, this);
+                    }
+                    if (GetVoxel(x, y, z + 1).IsEmpty)
+                    {
+                        SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Forward, thisVoxel, this);
+                    }
+                    if (GetVoxel(x, y, z - 1).IsEmpty)
+                    {
+                        SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Backward, thisVoxel, this);
+                    }
+                    if (GetVoxel(x + 1, y, z).IsEmpty)
+                    {
+                        SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Right, thisVoxel, this);
+                    }
+                    if (GetVoxel(x - 1, y, z).IsEmpty)
+                    {
+                        SelectableFace.Create(tempGizmosParent, x, y, z, FaceDirection.Left, thisVoxel, this);
+                    }
+                }
+                else if (thisVoxel.type == VoxelType.CornerConcave1m)
+                {
+                    // todo gizmo
+                }
+            }
+        }
+
+        void RegenGizmo()
+        {
+            RegenGizmo(new List<Vector3Int>());
         }
 
         public struct VoxelFaceSelection
@@ -214,7 +229,12 @@ namespace EvroDev.BacklotUtilities.Voxels
 
         void RegenGizmo(List<VoxelFaceSelection> newSelection)
         {
-            RegenGizmo();
+            RegenGizmo(newSelection, new List<Vector3Int>());
+        }
+
+        void RegenGizmo(List<VoxelFaceSelection> newSelection, List<Vector3Int> onlyRegen)
+        {
+            RegenGizmo(onlyRegen);
             List<GameObject> newFounds = new List<GameObject>();
             foreach (VoxelFaceSelection selection in newSelection)
             {
@@ -481,12 +501,43 @@ namespace EvroDev.BacklotUtilities.Voxels
             if (face.chunk != this) return;
 
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
+
             Vector3Int p = face.GetTargetAir();
+
+            List<Vector3Int> gizmosToUpdate = new List<Vector3Int>() {
+                face.voxelPosition,
+                face.voxelPosition + Vector3Int.forward,
+                face.voxelPosition - Vector3Int.forward,
+                face.voxelPosition + Vector3Int.right,
+                face.voxelPosition - Vector3Int.right,
+                face.voxelPosition + Vector3Int.up,
+                face.voxelPosition + Vector3Int.down
+            };
+
             Voxel newVox = new Voxel();
             newVox.SetMaterial(face.FaceDirection, face.material);
             SetVoxel(p.x, p.y, p.z, newVox);
+
             newSelection.Add(new VoxelFaceSelection(p, face.FaceDirection));
+
             isDirty = true;
+            RegenGizmo(newSelection, gizmosToUpdate);
+        }
+
+        public void ExtrudeFaceGizmos(SelectableFace[] faces)
+        {
+            List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
+            foreach (SelectableFace face in faces)
+            {
+                if (face.chunk != this) continue;
+
+                Vector3Int p = face.GetTargetAir();
+                Voxel newVox = new Voxel();
+                newVox.SetMaterial(face.FaceDirection, face.material);
+                SetVoxel(p.x, p.y, p.z, newVox);
+                newSelection.Add(new VoxelFaceSelection(p, face.FaceDirection));
+                isDirty = true;
+            }
             RegenGizmo(newSelection);
         }
 
@@ -515,14 +566,29 @@ namespace EvroDev.BacklotUtilities.Voxels
         public void IntrudeFaceGizmo(SelectableFace face)
         {
             if (face.chunk != this) return;
+
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
+
             Vector3Int newFace = face.GetBackwardPos();
+
+            List<Vector3Int> gizmosToUpdate = new List<Vector3Int>() {
+                face.voxelPosition,
+                face.voxelPosition + Vector3Int.forward,
+                face.voxelPosition - Vector3Int.forward,
+                face.voxelPosition + Vector3Int.right,
+                face.voxelPosition - Vector3Int.right,
+                face.voxelPosition + Vector3Int.up,
+                face.voxelPosition + Vector3Int.down
+            };
+
             SafeSampleVoxel(newFace.x, newFace.y, newFace.z).SetMaterial(face.FaceDirection, face.material);
             Vector3Int p = face.voxelPosition;
             SafeSampleVoxel(p.x, p.y, p.z).IsEmpty = true;
+
             newSelection.Add(new VoxelFaceSelection(newFace, face.FaceDirection));
+
             isDirty = true;
-            RegenGizmo(newSelection);
+            RegenGizmo(newSelection, gizmosToUpdate);
         }
 
         public void PaintSelection(Material m)

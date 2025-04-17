@@ -5,6 +5,7 @@ using EvroDev.BacklotUtilities.Extensions;
 using UnityEditor;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using UnityEditor.EditorTools;
 
 namespace EvroDev.BacklotUtilities.Voxels
 {
@@ -34,7 +35,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             transform.position += FaceDirection switch 
             {
                 FaceDirection.Up => new Vector3(0, 0.5f, 0),
-                FaceDirection.Down => new Vector3(0, -0.5, 0),
+                FaceDirection.Down => new Vector3(0, -0.5f, 0),
                 FaceDirection.Forward => new Vector3(0, 0, 0.5f),
                 FaceDirection.Backward => new Vector3(0, 0, -0.5f),
                 FaceDirection.Right => new Vector3(0.5f, 0, 0),
@@ -65,7 +66,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                     Gizmos.color = material.color * new Color(1, 1, 1, 0.1f);
                 }
             }
-            Gizmos.DrawCube(centerPos, scale);
+            Gizmos.DrawCube(transform.position, scale);
         }
 
         private void OnDrawGizmosSelected()
@@ -77,7 +78,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             transform.position += FaceDirection switch 
             {
                 FaceDirection.Up => new Vector3(0, 0.5f, 0),
-                FaceDirection.Down => new Vector3(0, -0.5, 0),
+                FaceDirection.Down => new Vector3(0, -0.5f, 0),
                 FaceDirection.Forward => new Vector3(0, 0, 0.5f),
                 FaceDirection.Backward => new Vector3(0, 0, -0.5f),
                 FaceDirection.Right => new Vector3(0.5f, 0, 0),
@@ -108,37 +109,19 @@ namespace EvroDev.BacklotUtilities.Voxels
                     Gizmos.color = material.color * new Color(1, 1, 1, 0.3f);
                 }
             }
-            Gizmos.DrawCube(centerPos, scale);
+            Gizmos.DrawCube(transform.position, scale);
             Gizmos.color = new Color(1, 1, 1, 0.5f);
-            Gizmos.DrawWireCube(centerPos, scale);
+            Gizmos.DrawWireCube(transform.position, scale);
         }
 
         public Vector3Int GetTargetAir()
         {
-            return FaceDirection switch
-            {
-                FaceDirection.Up => voxelPosition + new Vector3Int(0, 1, 0),
-                FaceDirection.Down => voxelPosition + new Vector3Int(0, -1, 0),
-                FaceDirection.Forward => voxelPosition + new Vector3Int(0, 0, 1),
-                FaceDirection.Backward => voxelPosition + new Vector3Int(0, 0, -1),
-                FaceDirection.Right => voxelPosition + new Vector3Int(1, 0, 0),
-                FaceDirection.Left => voxelPosition + new Vector3Int(-1, 0, 0),
-                _ => voxelPosition
-            }
+            return voxelPosition + GetAxis();
         }
 
         public Vector3Int GetBackwardPos()
         {
-            return FaceDirection switch
-            {
-                FaceDirection.Up => voxelPosition + new Vector3Int(0, -1, 0),
-                FaceDirection.Down => voxelPosition + new Vector3Int(0, 1, 0),
-                FaceDirection.Forward => voxelPosition + new Vector3Int(0, 0, -1),
-                FaceDirection.Backward => voxelPosition + new Vector3Int(0, 0, 1),
-                FaceDirection.Right => voxelPosition + new Vector3Int(-1, 0, 0),
-                FaceDirection.Left => voxelPosition + new Vector3Int(1, 0, 0),
-                _ => voxelPosition
-            }
+            return voxelPosition - GetAxis();
         }
 
         public void Extrude(bool add)
@@ -151,6 +134,20 @@ namespace EvroDev.BacklotUtilities.Voxels
             {
                 chunk.IntrudeFaceGizmo(this);
             }
+        }
+
+        public Vector3Int GetAxis()
+        {
+            return FaceDirection switch
+            {
+                FaceDirection.Up => new Vector3Int(0, 1, 0),
+                FaceDirection.Down => new Vector3Int(0, -1, 0),
+                FaceDirection.Forward => new Vector3Int(0, 0, 1),
+                FaceDirection.Backward => new Vector3Int(0, 0, -1),
+                FaceDirection.Right => new Vector3Int(1, 0, 0),
+                FaceDirection.Left => new Vector3Int(-1, 0, 0),
+                _ => Vector3Int.zero
+            };
         }
 
         public static SelectableFace Create(Transform parent, int x, int y, int z, FaceDirection direction, Voxel voxel, BacklotVoxelChunk chunk)
@@ -179,6 +176,16 @@ namespace EvroDev.BacklotUtilities.Voxels
         static PlaneGizmoToolGUI()
         {
             SceneView.duringSceneGui += OnSceneGUI;
+            Selection.selectionChanged += OnSelectionChanged;
+        }
+
+        private static void OnSelectionChanged()
+        {
+            var active = Selection.activeGameObject;
+            if (active != null && active.TryGetComponent<SelectableFace>(out var face)) // You can change this condition
+            {
+                ToolManager.SetActiveTool<VoxelExtrudeTool>();
+            }
         }
 
         static void OnSceneGUI(SceneView sceneView)
@@ -208,18 +215,18 @@ namespace EvroDev.BacklotUtilities.Voxels
             Handles.color = Color.cyan;
             float size = HandleUtility.GetHandleSize(center + Vector3.up * 0.5f) * 0.2f;
 
-            if (Handles.Button(center + Vector3.up * 0.5f, Quaternion.identity, size, size, Handles.SphereHandleCap))
-            {
-                ExtrudeSelectedPlanes(selectedPlanes, true);
-            }
+            //if (Handles.Button(center + Vector3.up * 0.5f, Quaternion.identity, size, size, Handles.SphereHandleCap))
+            //{
+            //    ExtrudeSelectedPlanes(selectedPlanes, true);
+            //}
 
             Handles.color = Color.red;
             float size2 = HandleUtility.GetHandleSize(center - Vector3.up * 0.5f) * 0.2f;
 
-            if (Handles.Button(center - Vector3.up * 0.5f, Quaternion.identity, size2, size2, Handles.SphereHandleCap))
-            {
-                ExtrudeSelectedPlanes(selectedPlanes, false);
-            }
+            //if (Handles.Button(center - Vector3.up * 0.5f, Quaternion.identity, size2, size2, Handles.SphereHandleCap))
+            //{
+            //    ExtrudeSelectedPlanes(selectedPlanes, false);
+            //}
 
             //GUILayout.EndArea();
             //Handles.EndGUI();
