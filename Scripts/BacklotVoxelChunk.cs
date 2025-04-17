@@ -522,10 +522,18 @@ namespace EvroDev.BacklotUtilities.Voxels
                 if (face.chunk != this) continue;
 
                 Internal_ExtrudeFace(face, newSelection);
+
+                gizmosToUpdate.Add(face.voxelPosition);
+                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.forward);
+                gizmosToUpdate.Add(face.voxelPosition - Vector3Int.forward);
+                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.right);
+                gizmosToUpdate.Add(face.voxelPosition - Vector3Int.right);
+                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.up);
+                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.down);
             }
 
             isDirty = true;
-            RegenGizmo(newSelection);
+            RegenGizmo(newSelection, gizmosToUpdate);
         }
 
         void Internal_ExtrudeFace(SelectableFace face, List<VoxelFaceSelection> faceSelectionToAppend)
@@ -580,16 +588,25 @@ namespace EvroDev.BacklotUtilities.Voxels
         public void IntrudeFaceGizmos(List<SelectableFace> faces)
         {
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
+            List<Vector3Int> gizmosToUpdate = new List<Vector3Int>();
 
             foreach (SelectableFace face in faces)
             {
                 if (face.chunk != this) continue;
 
                 Internal_IntrudeFace(face, newSelection);
+
+                gizmosToUpdate.Add(face.voxelPosition);
+                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.forward);
+                gizmosToUpdate.Add(face.voxelPosition - Vector3Int.forward);
+                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.right);
+                gizmosToUpdate.Add(face.voxelPosition - Vector3Int.right);
+                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.up);
+                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.down);
             }
 
             isDirty = true;
-            RegenGizmo(newSelection);
+            RegenGizmo(newSelection, gizmosToUpdate);
         }
 
         private void Internal_IntrudeFace(SelectableFace face, List<VoxelFaceSelection> faceSelectionToAppend)
