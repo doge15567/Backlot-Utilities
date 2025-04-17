@@ -60,27 +60,49 @@ namespace EvroDev.BacklotUtilities.Voxels
 
                 if (snappedDistance >= 1f)
                 {
-                    foreach (UnityEngine.Object obj in targets)
-                    {
-                        SelectableFace face = (SelectableFace)obj;
-                        if (face.GetAxis() == movementAxis)
-                        {
-                            face.Extrude(false);
-                        }
-                    }
+                    List<SelectableFace> facesToMove = GetFacesToMove();
+                    facesToMove[0].chunk.ExtrudeFaceGizmos(facesToMove);
                 }
                 else if (snappedDistance <= -1)
                 {
+                    List<SelectableFace> facesToMove = GetFacesToMove();
+                    facesToMove[0].chunk.IntrudeFaceGizmos(facesToMove);
+                }
+
+                List<SelectableFace> GetFacesToMove()
+                {
+                    List<SelectableFace> facesToMove = new List<SelectableFace>();
                     foreach (UnityEngine.Object obj in targets)
                     {
                         SelectableFace face = (SelectableFace)obj;
                         if (face.GetAxis() == movementAxis)
                         {
-                            face.Extrude(true);
+                            facesToMove.Add(face);
                         }
                     }
+                    return facesToMove;
                 }
             }
+
+            Handles.BeginGUI();
+
+            Vector3 worldUiPosition = targetTransform.position + Vector3.up;
+            Vector2 guiPosition = HandleUtility.WorldToGUIPoint(worldUiPosition);
+
+            GUILayout.BeginArea(new Rect(guiPosition.x - 60, guiPosition.y - 30, 120, 60), GUI.skin.box);
+            GUILayout.Label("Custom Tools");
+
+            if (GUILayout.Button("Flood Fill"))
+            {
+                foreach (UnityEngine.Object obj in targets)
+                {
+                    ((SelectableFace)obj).chunk.FloodFillSelect(new List<SelectableFace>() {(SelectableFace)obj});
+                    // line above is killing m
+                }
+            }
+
+            GUILayout.EndArea();
+            Handles.EndGUI();
         }
     }
 }
