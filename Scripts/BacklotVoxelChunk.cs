@@ -499,13 +499,13 @@ namespace EvroDev.BacklotUtilities.Voxels
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
 
             List<Vector3Int> gizmosToUpdate = new List<Vector3Int>() {
-                face.voxelPosition,
-                face.voxelPosition + Vector3Int.forward,
-                face.voxelPosition - Vector3Int.forward,
-                face.voxelPosition + Vector3Int.right,
-                face.voxelPosition - Vector3Int.right,
-                face.voxelPosition + Vector3Int.up,
-                face.voxelPosition + Vector3Int.down
+                face.GetTargetAir(),
+                face.GetTargetAir() + Vector3Int.forward,
+                face.GetTargetAir() - Vector3Int.forward,
+                face.GetTargetAir() + Vector3Int.right,
+                face.GetTargetAir() - Vector3Int.right,
+                face.GetTargetAir() + Vector3Int.up,
+                face.GetTargetAir() + Vector3Int.down
             };
 
             Internal_ExtrudeFace(face, newSelection);
@@ -517,32 +517,37 @@ namespace EvroDev.BacklotUtilities.Voxels
         public void ExtrudeFaceGizmos(List<SelectableFace> faces)
         {
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
+            HashSet<Vector3Int> gizmosToUpdate = new HashSet<Vector3Int>();
             foreach (SelectableFace face in faces)
             {
                 if (face.chunk != this) continue;
 
                 Internal_ExtrudeFace(face, newSelection);
 
-                gizmosToUpdate.Add(face.voxelPosition);
-                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.forward);
-                gizmosToUpdate.Add(face.voxelPosition - Vector3Int.forward);
-                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.right);
-                gizmosToUpdate.Add(face.voxelPosition - Vector3Int.right);
-                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.up);
-                gizmosToUpdate.Add(face.voxelPosition + Vector3Int.down);
+                gizmosToUpdate.Add(face.GetTargetAir());
+                gizmosToUpdate.Add(face.GetTargetAir() + Vector3Int.forward);
+                gizmosToUpdate.Add(face.GetTargetAir() - Vector3Int.forward);
+                gizmosToUpdate.Add(face.GetTargetAir() + Vector3Int.right);
+                gizmosToUpdate.Add(face.GetTargetAir() - Vector3Int.right);
+                gizmosToUpdate.Add(face.GetTargetAir() + Vector3Int.up);
+                gizmosToUpdate.Add(face.GetTargetAir() + Vector3Int.down);
             }
 
             isDirty = true;
-            RegenGizmo(newSelection, gizmosToUpdate);
+            RegenGizmo(newSelection, gizmosToUpdate.ToList());
         }
 
         void Internal_ExtrudeFace(SelectableFace face, List<VoxelFaceSelection> faceSelectionToAppend)
         {
-            Vector3Int p = face.GetTargetAir();
-            Voxel newVox = new Voxel();
-            newVox.SetMaterial(face.FaceDirection, face.material);
-            SetVoxel(p.x, p.y, p.z, newVox);
-            faceSelectionToAppend.Add(new VoxelFaceSelection(p, face.FaceDirection));
+            Vector3Int newFace = face.GetTargetAir();
+
+            Voxel targetVoxel = GetVoxel(newFace.x, newFace.y, newFace.z);
+
+            targetVoxel.SetMaterial(face.FaceDirection, face.material);
+            targetVoxel.IsEmpty = false;
+            SetVoxel(newFace.x, newFace.y, newFace.z, targetVoxel);
+
+            faceSelectionToAppend.Add(new VoxelFaceSelection(newFace, face.FaceDirection));
         }
 
         [ContextMenu("Intrude Selection (Debug)")]
@@ -588,7 +593,7 @@ namespace EvroDev.BacklotUtilities.Voxels
         public void IntrudeFaceGizmos(List<SelectableFace> faces)
         {
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
-            List<Vector3Int> gizmosToUpdate = new List<Vector3Int>();
+            HashSet<Vector3Int> gizmosToUpdate = new HashSet<Vector3Int>();
 
             foreach (SelectableFace face in faces)
             {
@@ -606,12 +611,13 @@ namespace EvroDev.BacklotUtilities.Voxels
             }
 
             isDirty = true;
-            RegenGizmo(newSelection, gizmosToUpdate);
+            RegenGizmo(newSelection, gizmosToUpdate.ToList());
         }
 
         private void Internal_IntrudeFace(SelectableFace face, List<VoxelFaceSelection> faceSelectionToAppend)
         {
             Vector3Int newFace = face.GetBackwardPos();
+
             SafeSampleVoxel(newFace.x, newFace.y, newFace.z).SetMaterial(face.FaceDirection, face.material);
             Vector3Int p = face.voxelPosition;
             SafeSampleVoxel(p.x, p.y, p.z).IsEmpty = true;
@@ -642,8 +648,8 @@ namespace EvroDev.BacklotUtilities.Voxels
 
         public void FloodFillSelect(List<SelectableFace> startingFaces)
         {
-            List<SelectableFace> newFounds = new List<SelectableFace>();
-            foreach(SelectableFace face in startingFace)
+            List<GameObject> newFounds = new List<GameObject>();
+            foreach(SelectableFace face in startingFaces)
             {
                 foreach (VoxelFaceSelection selection in FloodFillVoxels(face.voxelPosition, face.FaceDirection))
                 {
@@ -662,7 +668,7 @@ namespace EvroDev.BacklotUtilities.Voxels
 
         List<VoxelFaceSelection> FloodFillVoxels(Vector3Int startingFace, FaceDirection targetDirection)
         {
-            List<VoxelFaceSelection> outputFaces = newList<VoxelFaceSelection>();
+            List<VoxelFaceSelection> outputFaces = new List<VoxelFaceSelection>();
             HashSet<Vector3Int> visitedVoxels = new HashSet<Vector3Int>();
             Queue<Vector3Int> Q = new Queue<Vector3Int>();
 
@@ -678,17 +684,17 @@ namespace EvroDev.BacklotUtilities.Voxels
                 {
                     FaceDirection.Forward => new Vector3Int[] { Vector3Int.up, Vector3Int.down, Vector3Int.left, Vector3Int.right },
                     FaceDirection.Backward => new Vector3Int[] { Vector3Int.up, Vector3Int.down, Vector3Int.left, Vector3Int.right },
-                    FaceDirection.Up => new Vector3Int[] { Vector3Int.forward, Vector3Int.backward, Vector3Int.left, Vector3Int.right },
-                    FaceDirection.Down => new Vector3Int[] { Vector3Int.forward, Vector3Int.backward, Vector3Int.left, Vector3Int.right },
-                    FaceDirection.Left => new Vector3Int[] { Vector3Int.up, Vector3Int.down, Vector3Int.left, Vector3Int.right },
-                    FaceDirection.Right => new Vector3Int[] { Vector3Int.up, Vector3Int.down, Vector3Int.forward, Vector3Int.backward },
-                    _ => new Vector3Int[]
+                    FaceDirection.Up => new Vector3Int[] { Vector3Int.forward, Vector3Int.back, Vector3Int.left, Vector3Int.right },
+                    FaceDirection.Down => new Vector3Int[] { Vector3Int.forward, Vector3Int.back, Vector3Int.left, Vector3Int.right },
+                    FaceDirection.Left => new Vector3Int[] { Vector3Int.up, Vector3Int.down, Vector3Int.forward, Vector3Int.back },
+                    FaceDirection.Right => new Vector3Int[] { Vector3Int.up, Vector3Int.down, Vector3Int.forward, Vector3Int.back },
+                    _ => new Vector3Int[0]
                 };
 
                 Vector3Int scanDirection = targetDirection switch
                 {
                     FaceDirection.Forward => Vector3Int.forward,
-                    FaceDirection.Backward => Vector3Int.backward,
+                    FaceDirection.Backward => Vector3Int.back,
                     FaceDirection.Up => Vector3Int.up,
                     FaceDirection.Down => Vector3Int.down,
                     FaceDirection.Left => Vector3Int.left,
@@ -708,8 +714,8 @@ namespace EvroDev.BacklotUtilities.Voxels
                     Voxel inTheFace = SafeSampleVoxel(faceNeighbor.x, faceNeighbor.y, faceNeighbor.z);
                     if(inTheFace.IsEmpty)
                     {
-                        queue.Enqueue(neighborPos);
-                        visited.Add(neighborPos);
+                        Q.Enqueue(neighborPos);
+                        visitedVoxels.Add(neighborPos);
                     }
                 }
             }
@@ -861,7 +867,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                                 break;
                             }
 
-                            int nextValidSize = ValidLengths[ValidLengths.IndexOf(w) + 1];
+                            int nextValidSize = ValidLengths[nextValidIndex];
                             // See if it can extend ALL THE WAY to the next valid one
                             // Will break out after checking extraW as 2, bc 8 is contained
                             for (int extraW = 1; !ValidLengths.Contains(w + extraW); extraW++)
