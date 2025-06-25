@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
@@ -6,6 +7,7 @@ using UnityEditor;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEditor.EditorTools;
+using UnityEngine.UIElements;
 
 namespace EvroDev.BacklotUtilities.Voxels
 {
@@ -25,9 +27,36 @@ namespace EvroDev.BacklotUtilities.Voxels
         public Vector3Int voxelPosition;
         public FaceDirection FaceDirection;
         public Material material;
+        public bool IsEmpty = false;
+        private Vector3 gizmoScale
+        {
+            get
+            {
+                if(_gizmoScale == Vector3.zero)
+                {
+                    _gizmoScale = FaceDirection switch
+                    {
+                        FaceDirection.Up => new Vector3(1f, 0.01f, 1f),
+                        FaceDirection.Down => new Vector3(1f, 0.01f, 1f),
+                        FaceDirection.Forward => new Vector3(1f, 1f, 0.01f),
+                        FaceDirection.Backward => new Vector3(1f, 1f, 0.01f),
+                        FaceDirection.Right => new Vector3(0.01f, 1f, 1f),
+                        FaceDirection.Left => new Vector3(0.01f, 1f, 1f),
+                        _ => Vector3.one
+                    };
+                }
+                return _gizmoScale;
+            }
+        }
+        private Vector3 _gizmoScale;
 
         void OnDrawGizmos()
         {
+            if (chunk == null) 
+            {
+                return;
+            }
+
             if(chunk.manager.visualizationMode != VisualizationMode.Gizmos) return;
 
             transform.position = transform.parent.position + voxelPosition + (Vector3.one / 2);
@@ -55,63 +84,21 @@ namespace EvroDev.BacklotUtilities.Voxels
             };
 
             Gizmos.color = new Color(1, 1, 1, 0.1f);
-            if (material)
-            {
-                try
-                {
-                    Gizmos.color = TextureColorExtensions.GetAverageColor(material.mainTexture as Texture2D) * material.color;
-                }
-                catch
-                {
-                    Gizmos.color = material.color * new Color(1, 1, 1, 0.1f);
-                }
-            }
             Gizmos.DrawCube(transform.position, scale);
         }
 
         private void OnDrawGizmosSelected()
         {
+            if (chunk == null) 
+            {
+                return;
+            }
             if(chunk.manager.visualizationMode != VisualizationMode.Gizmos) return;
 
-            transform.position = transform.parent.position + voxelPosition + (Vector3.one / 2);
-            
-            transform.position += FaceDirection switch 
-            {
-                FaceDirection.Up => new Vector3(0, 0.5f, 0),
-                FaceDirection.Down => new Vector3(0, -0.5f, 0),
-                FaceDirection.Forward => new Vector3(0, 0, 0.5f),
-                FaceDirection.Backward => new Vector3(0, 0, -0.5f),
-                FaceDirection.Right => new Vector3(0.5f, 0, 0),
-                FaceDirection.Left => new Vector3(-0.5f, 0, 0),
-                _ => Vector3.zero
-            };
-
-            Vector3 scale = FaceDirection switch 
-            {
-                FaceDirection.Up => new Vector3(1f, 0.01f, 1f),
-                FaceDirection.Down => new Vector3(1f, 0.01f, 1f),
-                FaceDirection.Forward => new Vector3(1f, 1f, 0.01f),
-                FaceDirection.Backward => new Vector3(1f, 1f, 0.01f),
-                FaceDirection.Right => new Vector3(0.01f, 1f, 1f),
-                FaceDirection.Left => new Vector3(0.01f, 1f, 1f),
-                _ => Vector3.one
-            };
-
             Gizmos.color = new Color(1, 1, 1, 0.3f);
-            if (material)
-            {
-                try
-                {
-                    Gizmos.color = TextureColorExtensions.GetAverageColor(material.mainTexture as Texture2D) * material.color;
-                }
-                catch
-                {
-                    Gizmos.color = material.color * new Color(1, 1, 1, 0.3f);
-                }
-            }
-            Gizmos.DrawCube(transform.position, scale);
+            Gizmos.DrawCube(transform.position, gizmoScale);
             Gizmos.color = new Color(1, 1, 1, 0.5f);
-            Gizmos.DrawWireCube(transform.position, scale);
+            Gizmos.DrawWireCube(transform.position, gizmoScale);
         }
 
         public Vector3Int GetTargetAir()
@@ -243,3 +230,4 @@ namespace EvroDev.BacklotUtilities.Voxels
         }
     }
 }
+#endif

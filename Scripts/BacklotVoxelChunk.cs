@@ -1,8 +1,14 @@
+#if UNITY_EDITOR
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine.UIElements;
+using EvroDev.BacklotUtilities.Extensions;
+using SLZ.Marrow.Warehouse;
+using SLZ.Marrow;
+
+
 
 
 #if UNITY_EDITOR
@@ -12,12 +18,21 @@ using UnityEditor;
 
 namespace EvroDev.BacklotUtilities.Voxels
 {
+
+    public struct SurfaceDescription
+    {
+        public Material material;
+        public SurfaceDataCard surfaceDataCard;
+    }
+
     public class BacklotVoxelChunk : MonoBehaviour
     {
         public BacklotChunkManager manager;
         public int ChunkSize = 32;
         int ChunkSizeP => ChunkSize + 2;
         int ChunkSizeP2 => ChunkSizeP * ChunkSizeP;
+        
+        [HideInInspector]
         public Voxel[] voxels;
 
         public Transform tempGizmosParent;
@@ -29,12 +44,13 @@ namespace EvroDev.BacklotUtilities.Voxels
 
         public Voxel GetVoxel(Vector3Int position)
         {
+            if (position.InBounds(ChunkSize)) return SafeSampleVoxel(position.x, position.y, position.z);
             return manager.GetVoxel(this, position);
         }
 
         public Voxel GetVoxel(int x, int y, int z)
         {
-            return manager.GetVoxel(this, new Vector3Int(x, y, z));
+            return GetVoxel(new Vector3Int(x, y, z));
         }
 
 
@@ -116,28 +132,32 @@ namespace EvroDev.BacklotUtilities.Voxels
         }
 
         [ContextMenu("Regen Gizmos")]
-        void RegenGizmo(List<Vector3Int> onlyRegen)
+        public void RegenGizmos()
         {
-            if (!isDirty) return;
+            EditorApplication.delayCall += () => RegenGizmo(new List<Vector3Int>(), true);
+        }
+
+        void RegenGizmo(List<Vector3Int> onlyRegen, bool force = false)
+        {
+            if (!isDirty && !force) return;
+
+            foreach (SelectableFace f in GetComponentsInChildren<SelectableFace>())
+            {
+                if (onlyRegen.Count == 0 || onlyRegen.Contains(f.voxelPosition))
+                    DestroyImmediate(f.gameObject);
+            }
 
             if (tempGizmosParent == null)
             {
                 GameObject gizmoParent = new GameObject("TEMP Gizmo Parent");
-                gizmoParent.hideFlags = HideFlags.HideInHierarchy;
                 gizmoParent.transform.parent = transform;
                 gizmoParent.transform.localPosition = Vector3.zero;
                 tempGizmosParent = gizmoParent.transform;
             }
-            else
-            {
-                foreach (SelectableFace f in GetComponentsInChildren<SelectableFace>())
-                {
-                    if(onlyRegen.Count == 0 || onlyRegen.Contains(f.voxelPosition))
-                        DestroyImmediate(f.gameObject);
-                }
-            }
 
-            if(onlyRegen.Count != 0)
+            tempGizmosParent.gameObject.hideFlags = HideFlags.HideInHierarchy;
+
+            if (onlyRegen.Count != 0)
             {
                 foreach(Vector3Int pos in onlyRegen)
                 {
@@ -304,7 +324,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 }
             }
 
-            Dictionary<VoxelType, Dictionary<Material, Dictionary<int, uint[]>>>[] data = new Dictionary<VoxelType, Dictionary<Material, Dictionary<int, uint[]>>>[6]
+            Dictionary<VoxelType, Dictionary<SurfaceDescription, Dictionary<int, uint[]>>>[] data = new Dictionary<VoxelType, Dictionary<SurfaceDescription, Dictionary<int, uint[]>>>[6]
             {
                 new(),
                 new(),
@@ -361,29 +381,36 @@ namespace EvroDev.BacklotUtilities.Voxels
                                 (5) => 4,
                                 _ => axis2,
                             };
-                            Material voxelID = currentVoxel.GetMaterial((FaceDirection)facingDirection);
+                            if (currentVoxel.GetOverrideFace((FaceDirection)facingDirection)) continue;
+
+                            Material faceMat = currentVoxel.GetMaterial((FaceDirection)facingDirection);
                             VoxelType type = currentVoxel.type;
 
-                            if (voxelID == null)
+                            if(faceMat == null)
                             {
-                                voxelID = BacklotManager.DefaultGridMaterial();
+                                faceMat = BacklotManager.DefaultGridMaterial();
                             }
-                            //int voxelID = 0;
+
+                            SurfaceDescription surfaceDescription = new SurfaceDescription()
+                            {
+                                material = faceMat,
+                                surfaceDataCard = currentVoxel.GetSurface((FaceDirection)facingDirection)
+                            };
 
                             // WHAT THE FUCK :fireEmoji:
                             if (!data[axis2].ContainsKey(type))
                             {
-                                data[axis2].Add(type, new Dictionary<Material, Dictionary<int, uint[]>>());
+                                data[axis2].Add(type, new Dictionary<SurfaceDescription, Dictionary<int, uint[]>>());
                             }
-                            if (!data[axis2][type].ContainsKey(voxelID))
+                            if (!data[axis2][type].ContainsKey(surfaceDescription))
                             {
-                                data[axis2][type].Add(voxelID, new Dictionary<int, uint[]>());
+                                data[axis2][type].Add(surfaceDescription, new Dictionary<int, uint[]>());
                             }
-                            if (!data[axis2][type][voxelID].ContainsKey(y))
+                            if (!data[axis2][type][surfaceDescription].ContainsKey(y))
                             {
-                                data[axis2][type][voxelID].Add(y, new uint[ChunkSize]);
+                                data[axis2][type][surfaceDescription].Add(y, new uint[ChunkSize]);
                             }
-                            data[axis2][type][voxelID][y][x] |= 1u << z;
+                            data[axis2][type][surfaceDescription][y][x] |= 1u << z;
                         }
                     }
                 }
@@ -400,11 +427,11 @@ namespace EvroDev.BacklotUtilities.Voxels
                     if(type != VoxelType.Wall)
                         continue;
                     
-                    Dictionary<Material, Dictionary<int, uint[]>> block_mat_data = data[axis][type];
+                    Dictionary<SurfaceDescription, Dictionary<int, uint[]>> block_mat_data = data[axis][type];
 
-                    foreach (var material in block_mat_data.Keys)
+                    foreach (var surfaceDescription in block_mat_data.Keys)
                     {
-                        var axis_plane = block_mat_data[material];
+                        var axis_plane = block_mat_data[surfaceDescription];
 
                         foreach (var axisPos in axis_plane.Keys)
                         {
@@ -412,7 +439,7 @@ namespace EvroDev.BacklotUtilities.Voxels
 
                             // now FINALLY greedymesh it
                             Debug.Log($"Axis: {axis_plane}\nAxis Pos: {axisPos}\n\"Axis plane int: {plane[0]}");
-                            var generatedGrids = GreedyGridwall.GreedTheGrid(plane, material, (FaceDirection)axis, axisPos);
+                            var generatedGrids = GreedyGridwall.GreedTheGrid(plane, surfaceDescription, (FaceDirection)axis, axisPos);
                             backlotGenResults.AddRange(generatedGrids);
                         }
                     }
@@ -429,49 +456,37 @@ namespace EvroDev.BacklotUtilities.Voxels
                     {
                         DestroyImmediate(backlotsParent.gameObject);
 
-                        GameObject backParent = new GameObject("Generated Backlots");
-                        backParent.transform.parent = transform;
-                        backParent.transform.localPosition = Vector3.zero;
-                        backlotsParent = backParent.transform;
-
-                        foreach (var backlot in backlotGenResults)
-                        {
-                            Debug.Log(backlot.scale);
-                            var gridwall = BacklotManager.FindGridWall(backlot.scale);
-                            if (gridwall != null)
-                            {
-                                GameObject inst = PrefabUtility.InstantiatePrefab(gridwall, backlotsParent) as GameObject;
-                                inst.GetComponentInChildren<MeshRenderer>().sharedMaterial = backlot.material;
-                                inst.transform.localPosition = backlot.localPos;
-                                inst.transform.rotation = backlot.rotation;
-                            }
-                        }
-                        isDirty = false;
+                        GenerateBacklotPrefabs(backlotGenResults);
                     };
                 }
 #endif
             }
             else
             {
-                GameObject backParent = new GameObject("Generated Backlots");
-                backParent.transform.parent = transform;
-                backParent.transform.localPosition = Vector3.zero;
-                backlotsParent = backParent.transform;
-
-                foreach (var backlot in backlotGenResults)
-                {
-                    Debug.Log(backlot.scale);
-                    var gridwall = BacklotManager.FindGridWall(backlot.scale);
-                    if (gridwall != null)
-                    {
-                        GameObject inst = PrefabUtility.InstantiatePrefab(gridwall, backlotsParent) as GameObject;
-                        inst.GetComponentInChildren<MeshRenderer>().sharedMaterial = backlot.material;
-                        inst.transform.localPosition = backlot.localPos;
-                        inst.transform.rotation = backlot.rotation;
-                    }
-                }
-                isDirty = false;
+                GenerateBacklotPrefabs(backlotGenResults);
             }
+        }
+
+        private void GenerateBacklotPrefabs(List<GreedyGridwall.ResultingBacklot> backlotGenResults) 
+        {
+            GameObject backParent = new GameObject("Generated Backlots");
+            backParent.transform.parent = transform;
+            backParent.transform.localPosition = Vector3.zero;
+            backlotsParent = backParent.transform;
+
+            foreach (var backlot in backlotGenResults)
+            {
+                var gridwall = BacklotManager.FindGridWall(backlot.scale);
+                if (gridwall != null)
+                {
+                    GameObject inst = PrefabUtility.InstantiatePrefab(gridwall, backlotsParent) as GameObject;
+                    inst.GetComponentInChildren<MeshRenderer>().sharedMaterial = backlot.material;
+                    inst.GetComponentInChildren<ImpactProperties>().SurfaceDataCard = new DataCardReference<SurfaceDataCard>(backlot.surfaceDataBarcode);
+                    inst.transform.localPosition = backlot.localPos;
+                    inst.transform.rotation = backlot.rotation;
+                }
+            }
+            isDirty = false;
         }
 
         [ContextMenu("Extrude Selection (Debug)")]
@@ -518,8 +533,10 @@ namespace EvroDev.BacklotUtilities.Voxels
         {
             List<VoxelFaceSelection> newSelection = new List<VoxelFaceSelection>();
             HashSet<Vector3Int> gizmosToUpdate = new HashSet<Vector3Int>();
-            foreach (SelectableFace face in faces)
+            for (int i = 0; i < faces.Count; i++)
             {
+                SelectableFace face = faces[i];
+                EditorUtility.DisplayProgressBar("Extruding", $"Extruding face {i} of {faces.Count}", (float)i / faces.Count);
                 if (face.chunk != this) continue;
 
                 Internal_ExtrudeFace(face, newSelection);
@@ -532,6 +549,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 gizmosToUpdate.Add(face.GetTargetAir() + Vector3Int.up);
                 gizmosToUpdate.Add(face.GetTargetAir() + Vector3Int.down);
             }
+            EditorUtility.ClearProgressBar();
 
             isDirty = true;
             RegenGizmo(newSelection, gizmosToUpdate.ToList());
@@ -545,7 +563,7 @@ namespace EvroDev.BacklotUtilities.Voxels
 
             targetVoxel.SetMaterial(face.FaceDirection, face.material);
             targetVoxel.IsEmpty = false;
-            SetVoxel(newFace.x, newFace.y, newFace.z, targetVoxel);
+            //SetVoxel(newFace.x, newFace.y, newFace.z, targetVoxel);
 
             faceSelectionToAppend.Add(new VoxelFaceSelection(newFace, face.FaceDirection));
         }
@@ -611,6 +629,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             }
 
             isDirty = true;
+            EditorUtility.SetDirty(this);
             RegenGizmo(newSelection, gizmosToUpdate.ToList());
         }
 
@@ -743,8 +762,35 @@ namespace EvroDev.BacklotUtilities.Voxels
     {
         public bool IsEmpty = false;
         public VoxelType type = VoxelType.Wall;
+
         [SerializeField]
         private Material[] _materials = new Material[6];
+        [SerializeField]
+        private byte _overrideFacesByte = new();
+        private SurfaceDataCard[] faceSurfaces = new SurfaceDataCard[6];
+        //private bool[] _overrideFaces = new bool[6];
+
+        public void SetOverrideFace(FaceDirection dir, bool enabled)
+        {
+            if (enabled) 
+            {
+                _overrideFacesByte = (byte)(_overrideFacesByte | (1 << (int)dir));
+            }
+            else 
+            {
+                _overrideFacesByte = (byte)(_overrideFacesByte & ~(1 << (int)dir));
+            }
+
+            //_overrideFaces[(int)dir] = enabled;
+        }
+
+        public bool GetOverrideFace(FaceDirection dir)
+        {
+            return (_overrideFacesByte & (1 << (int)dir)) != 0;
+
+            //return _overrideFaces[(int)dir];
+        }
+
 
         public void SetMaterial(FaceDirection dir, Material mat)
         {
@@ -754,6 +800,15 @@ namespace EvroDev.BacklotUtilities.Voxels
         public Material GetMaterial(FaceDirection dir)
         {
             return _materials[(int)dir];
+        }
+
+        public void SetSurface(FaceDirection dir, SurfaceDataCard surface)
+        {
+            faceSurfaces[(int)dir] = surface;
+        }
+        public SurfaceDataCard GetSurface(FaceDirection dir)
+        {
+            return faceSurfaces[(int)dir];
         }
     }
 
@@ -766,6 +821,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             public Vector3 localPos;
             public Vector2 scale;
             public FaceDirection axis;
+            public Barcode surfaceDataBarcode;
             public int axisIndex;
             public Quaternion rotation;
             public Material material;
@@ -826,7 +882,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             return ValidLengths[ValidLengths.Count - 1];
         }
 
-        public static List<ResultingBacklot> GreedTheGrid(uint[] data, Material theMat, FaceDirection axis, int axisPos)
+        public static List<ResultingBacklot> GreedTheGrid(uint[] data, SurfaceDescription surfDesc, FaceDirection axis, int axisPos)
         {
             List<ResultingBacklot> outpt = new List<ResultingBacklot>();
             for (int x = 0; x < data.Length; x++)
@@ -917,7 +973,8 @@ namespace EvroDev.BacklotUtilities.Voxels
                     {
                         planePos = new Vector2(x, y) + (scale / 2),
                         scale = scale,
-                        material = theMat,
+                        material = surfDesc.material,
+                        //surfaceDataBarcode = surfDesc.surfaceDataCard ? surfDesc.surfaceDataCard.Barcode : new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
                         axis = axis,
                         axisIndex = axisPos
                     };
@@ -962,3 +1019,4 @@ namespace EvroDev.BacklotUtilities.Voxels
         }
     }
 }
+#endif

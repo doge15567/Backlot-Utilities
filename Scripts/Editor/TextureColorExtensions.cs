@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if UNITY_EDITOR
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -32,5 +33,13 @@ namespace EvroDev.BacklotUtilities.Extensions
             // Divide the sum by the total number of pixels to get the average
             return sum / pixels.Length;
         }
+
+        public static bool InBounds(this Vector3Int pos, int bound)
+        {
+            if (pos.x < 0 || pos.y < 0 || pos.z < 0) return false;
+            if (pos.x >= bound || pos.y >=bound || pos.z >= bound) return false;
+            return true;
+        }
     }
 }
+#endif

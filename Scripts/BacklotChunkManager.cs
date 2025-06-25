@@ -1,12 +1,10 @@
-// Script for managing chunks and stuff
-// Goals: Automatically create chunks when bounds are hit
-//      Manage overall extending of bounds and stuff
-//      some other stuff
+#if UNITY_EDITOR
 using System;
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
+using EvroDev.BacklotUtilities.Extensions;
 
 namespace EvroDev.BacklotUtilities.Voxels
 {
@@ -43,6 +41,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                     var chunk = realChunk.chunk;
                     if (chunk.backlotsParent != null)
                         chunk.backlotsParent.gameObject.SetActive(false);
+                    chunk.RegenGizmos();
                 }
                 // Hide Backlots
             }
@@ -106,7 +105,11 @@ namespace EvroDev.BacklotUtilities.Voxels
         /// </summary>
         public Voxel GetVoxel(BacklotVoxelChunk chunk, Vector3Int position)
         {
-            var (realChunk, realPos) = GetRelativeChunk(chunk, position);
+            BacklotVoxelChunk realChunk;
+            Vector3Int realPos;
+
+            if (position.InBounds(chunk.ChunkSize)) (realChunk, realPos) = (chunk, position);
+            else (realChunk, realPos) = GetRelativeChunk(chunk, position);
 
             return realChunk.SafeSampleVoxel(realPos.x, realPos.y, realPos.z);
         }
@@ -117,7 +120,11 @@ namespace EvroDev.BacklotUtilities.Voxels
         /// </summary>
         public void SetVoxel(BacklotVoxelChunk chunk, Vector3Int position, Voxel voxel)
         {
-            var (realChunk, realPos) = GetRelativeChunk(chunk, position, true);
+            BacklotVoxelChunk realChunk;
+            Vector3Int realPos;
+
+            if (position.InBounds(chunk.ChunkSize)) (realChunk, realPos) = (chunk, position);
+            else (realChunk, realPos) = GetRelativeChunk(chunk, position, true);
 
             realChunk.SafeSetVoxel(realPos, voxel);
         }
@@ -218,3 +225,4 @@ namespace EvroDev.BacklotUtilities.Voxels
         public BacklotVoxelChunk chunk;
     }
 }
+#endif
