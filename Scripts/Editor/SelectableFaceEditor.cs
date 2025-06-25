@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
+using SLZ.MarrowEditor;
+using SLZ.Marrow.Warehouse;
 
 namespace EvroDev.BacklotUtilities.Voxels
 {
@@ -38,6 +40,15 @@ namespace EvroDev.BacklotUtilities.Voxels
                 UpdateVoxelMaterials((Material)evt.newValue);
             });
 
+            ObjectField surfaceData = new ObjectField("Surface Data");
+            surfaceData.objectType = typeof(SurfaceDataCard);
+            surfaceData.allowSceneObjects = false;
+            surfaceData.value = (SurfaceDataCard)serializedObject.FindProperty("surfaceData").objectReferenceValue;
+            surfaceData.RegisterValueChangedCallback(evt =>
+            {
+                UpdateVoxelSurface((SurfaceDataCard)evt.newValue);
+            });
+
             Toggle removeButton = new Toggle("Is Empty");
             removeButton.value = serializedObject.FindProperty("IsEmpty").boolValue;
             removeButton.RegisterValueChangedCallback(evt =>
@@ -49,16 +60,17 @@ namespace EvroDev.BacklotUtilities.Voxels
             container.Add(Title);
             container.Add(spacer);
             container.Add(voxelMaterial);
+            container.Add(surfaceData);
             container.Add(removeButton);
 
             return container;
         }
 
-        private static void UpdateVoxelEnabled(bool value) 
+        private static void UpdateVoxelEnabled(bool value)
         {
             GameObject[] voxels = Selection.gameObjects;
 
-            foreach (GameObject voxel in voxels) 
+            foreach (GameObject voxel in voxels)
             {
                 SelectableFace face;
                 if (voxel.TryGetComponent<SelectableFace>(out face))
@@ -72,17 +84,33 @@ namespace EvroDev.BacklotUtilities.Voxels
         }
 
 
-        private static void UpdateVoxelMaterials(Material newMaterial) 
+        private static void UpdateVoxelMaterials(Material newMaterial)
         {
             GameObject[] voxels = Selection.gameObjects;
 
-            foreach (GameObject voxel in voxels) 
+            foreach (GameObject voxel in voxels)
             {
                 SelectableFace face;
-                if(voxel.TryGetComponent<SelectableFace>(out face)) 
+                if (voxel.TryGetComponent<SelectableFace>(out face))
                 {
                     face.material = newMaterial;
                     face.chunk.GetVoxel(face.voxelPosition).SetMaterial(face.FaceDirection, newMaterial);
+                    face.chunk.isDirty = true;
+                    EditorUtility.SetDirty(face);
+                }
+            }
+        }
+
+        private static void UpdateVoxelSurface(SurfaceDataCard newSurface)
+        {
+            GameObject[] voxels = Selection.gameObjects;
+            foreach (GameObject voxel in voxels)
+            {
+                SelectableFace face;
+                if (voxel.TryGetComponent<SelectableFace>(out face))
+                {
+                    face.surfaceData = newSurface;
+                    face.chunk.GetVoxel(face.voxelPosition).SetSurface(face.FaceDirection, newSurface);
                     face.chunk.isDirty = true;
                     EditorUtility.SetDirty(face);
                 }

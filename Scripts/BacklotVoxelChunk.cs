@@ -561,9 +561,21 @@ namespace EvroDev.BacklotUtilities.Voxels
 
             Voxel targetVoxel = GetVoxel(newFace.x, newFace.y, newFace.z);
 
-            targetVoxel.SetMaterial(face.FaceDirection, face.material);
-            targetVoxel.IsEmpty = false;
-            //SetVoxel(newFace.x, newFace.y, newFace.z, targetVoxel);
+            if (!newFace.InBounds(ChunkSize))
+            {
+                Voxel newVox = new Voxel()
+                {
+                    IsEmpty = false,
+                    type = VoxelType.Wall,
+                };
+                newVox.SetMaterial(face.FaceDirection, face.material);
+                SetVoxel(newFace.x, newFace.y, newFace.z, newVox);
+            }
+            else
+            {
+                targetVoxel.SetMaterial(face.FaceDirection, face.material);
+                targetVoxel.IsEmpty = false;
+            }
 
             faceSelectionToAppend.Add(new VoxelFaceSelection(newFace, face.FaceDirection));
         }
@@ -974,7 +986,8 @@ namespace EvroDev.BacklotUtilities.Voxels
                         planePos = new Vector2(x, y) + (scale / 2),
                         scale = scale,
                         material = surfDesc.material,
-                        //surfaceDataBarcode = surfDesc.surfaceDataCard ? surfDesc.surfaceDataCard.Barcode : new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
+                        //surfaceDataBarcode = new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
+                        surfaceDataBarcode = surfDesc.surfaceDataCard ? surfDesc.surfaceDataCard.Barcode : new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
                         axis = axis,
                         axisIndex = axisPos
                     };

@@ -8,6 +8,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEditor.EditorTools;
 using UnityEngine.UIElements;
+using SLZ.Marrow.Warehouse;
 
 namespace EvroDev.BacklotUtilities.Voxels
 {
@@ -27,6 +28,7 @@ namespace EvroDev.BacklotUtilities.Voxels
         public Vector3Int voxelPosition;
         public FaceDirection FaceDirection;
         public Material material;
+        public SurfaceDataCard surfaceData = new DataCardReference<SurfaceDataCard>("SLZ.Backlot.SurfaceDataCard.Concrete").DataCard;
         public bool IsEmpty = false;
         private Vector3 gizmoScale
         {
@@ -150,6 +152,8 @@ namespace EvroDev.BacklotUtilities.Voxels
 
             if (voxel.GetMaterial(direction) != null)
                 outpt.material = voxel.GetMaterial(direction);
+            if (voxel.GetSurface(direction) != null)
+                outpt.surfaceData = new DataCardReference<SurfaceDataCard>(voxel.GetSurface(direction).Barcode).DataCard;
 
             outpt.chunk = chunk;
 
