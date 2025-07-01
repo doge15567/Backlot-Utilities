@@ -52,6 +52,14 @@ namespace EvroDev.BacklotUtilities.Voxels
                     var chunk = realChunk.chunk;
                     if(chunk.backlotsParent != null)
                         chunk.backlotsParent.gameObject.SetActive(true);
+
+                    EditorApplication.delayCall += () =>
+                    {
+                        foreach (SelectableFace f in chunk.GetComponentsInChildren<SelectableFace>())
+                        {
+                            DestroyImmediate(f.gameObject);
+                        }
+                    };
                 }
                 GenerateChangedChunks();
                 // show backlots
