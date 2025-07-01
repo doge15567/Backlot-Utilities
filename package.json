@@ -1,6 +1,6 @@
 {
     "name": "com.evrodev.backlot.utilities",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "displayName": "Backlot Utilities",
     "description": "Powerful Utilities to improve construction with the Marrow Backlot",
     "unity": "2021.3",
