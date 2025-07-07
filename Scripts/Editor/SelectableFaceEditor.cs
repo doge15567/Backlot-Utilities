@@ -40,13 +40,11 @@ namespace EvroDev.BacklotUtilities.Voxels
                 UpdateVoxelMaterials((Material)evt.newValue);
             });
 
-            ObjectField surfaceData = new ObjectField("Surface Data");
-            surfaceData.objectType = typeof(SurfaceDataCard);
-            surfaceData.allowSceneObjects = false;
-            surfaceData.value = (SurfaceDataCard)serializedObject.FindProperty("surfaceData").objectReferenceValue;
+            TextField surfaceData = new TextField("Surface Data");
+            surfaceData.value = serializedObject.FindProperty("surfaceData").stringValue;
             surfaceData.RegisterValueChangedCallback(evt =>
             {
-                UpdateVoxelSurface((SurfaceDataCard)evt.newValue);
+                UpdateVoxelSurface(new DataCardReference<SurfaceDataCard>(evt.newValue));
             });
 
             Toggle removeButton = new Toggle("Is Empty");
@@ -101,7 +99,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             }
         }
 
-        private static void UpdateVoxelSurface(SurfaceDataCard newSurface)
+        private static void UpdateVoxelSurface(DataCardReference<SurfaceDataCard> newSurface)
         {
             GameObject[] voxels = Selection.gameObjects;
             foreach (GameObject voxel in voxels)
@@ -109,7 +107,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 SelectableFace face;
                 if (voxel.TryGetComponent<SelectableFace>(out face))
                 {
-                    face.surfaceData = newSurface;
+                    face.surfaceData = newSurface.Barcode.ID;
                     face.chunk.GetVoxel(face.voxelPosition).SetSurface(face.FaceDirection, newSurface);
                     face.chunk.isDirty = true;
                     EditorUtility.SetDirty(face);
