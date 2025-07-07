@@ -1,10 +1,9 @@
 #if UNITY_EDITOR
+using EvroDev.BacklotUtilities.Extensions;
 using System;
-using UnityEngine;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
-using EvroDev.BacklotUtilities.Extensions;
+using UnityEngine;
 
 namespace EvroDev.BacklotUtilities.Voxels
 {
@@ -64,18 +63,6 @@ namespace EvroDev.BacklotUtilities.Voxels
                 GenerateChangedChunks();
                 // show backlots
             }
-        }
-
-
-        [ContextMenu("Set Material to Selected")]
-        public void SetWithSelectedMaterial()
-        {
-        }
-
-        public void PaintSelection(Material m)
-        {
-#if UNITY_EDITOR
-#endif
         }
 
         /// <summary>

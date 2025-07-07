@@ -239,11 +239,13 @@ namespace EvroDev.BacklotUtilities.Voxels
                 outpt.material = BacklotManager.DefaultGridMaterial();
 
 
+            var surfData = voxel.GetSurface(direction);
+            if (surfData != null && surfData.IsValid())
+                outpt.surfaceData = surfData;
+            else
+                voxel.SetSurface(direction, outpt.surfaceData);
 
-            if (voxel.GetSurface(direction) != null)
-                outpt.surfaceData = voxel.GetSurface(direction);
-
-            outpt.chunk = chunk;
+                outpt.chunk = chunk;
 
             outpt.OnDrawGizmos();
 

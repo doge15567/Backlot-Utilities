@@ -22,7 +22,7 @@ namespace EvroDev.BacklotUtilities.Voxels
     public struct SurfaceDescription
     {
         public Material material;
-        public DataCardReference<SurfaceDataCard> surfaceDataCard;
+        public string surfaceDataCard;
     }
 
     public class BacklotVoxelChunk : MonoBehaviour
@@ -394,7 +394,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                             SurfaceDescription surfaceDescription = new SurfaceDescription()
                             {
                                 material = faceMat,
-                                surfaceDataCard = currentVoxel.GetSurface((FaceDirection)facingDirection)
+                                surfaceDataCard = currentVoxel.GetSurface((FaceDirection)facingDirection).Barcode.ID
                             };
 
                             // WHAT THE FUCK :fireEmoji:
@@ -987,7 +987,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                         scale = scale,
                         material = surfDesc.material,
                         //surfaceDataBarcode = new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
-                        surfaceDataBarcode = surfDesc.surfaceDataCard != null ? surfDesc.surfaceDataCard.Barcode : new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
+                        surfaceDataBarcode = surfDesc.surfaceDataCard != null ? new Barcode(surfDesc.surfaceDataCard) : new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
                         axis = axis,
                         axisIndex = axisPos
                     }; 
