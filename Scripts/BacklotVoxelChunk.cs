@@ -22,7 +22,7 @@ namespace EvroDev.BacklotUtilities.Voxels
     public struct SurfaceDescription
     {
         public Material material;
-        public SurfaceDataCard surfaceDataCard;
+        public DataCardReference<SurfaceDataCard> surfaceDataCard;
     }
 
     public class BacklotVoxelChunk : MonoBehaviour
@@ -779,7 +779,7 @@ namespace EvroDev.BacklotUtilities.Voxels
         private Material[] _materials = new Material[6];
         [SerializeField]
         private byte _overrideFacesByte = new();
-        private SurfaceDataCard[] faceSurfaces = new SurfaceDataCard[6];
+        private DataCardReference<SurfaceDataCard>[] faceSurfaces = new DataCardReference<SurfaceDataCard>[6];
         //private bool[] _overrideFaces = new bool[6];
 
         public void SetOverrideFace(FaceDirection dir, bool enabled)
@@ -814,11 +814,11 @@ namespace EvroDev.BacklotUtilities.Voxels
             return _materials[(int)dir];
         }
 
-        public void SetSurface(FaceDirection dir, SurfaceDataCard surface)
+        public void SetSurface(FaceDirection dir, DataCardReference<SurfaceDataCard> surface)
         {
             faceSurfaces[(int)dir] = surface;
         }
-        public SurfaceDataCard GetSurface(FaceDirection dir)
+        public DataCardReference<SurfaceDataCard> GetSurface(FaceDirection dir)
         {
             return faceSurfaces[(int)dir];
         }
@@ -987,10 +987,10 @@ namespace EvroDev.BacklotUtilities.Voxels
                         scale = scale,
                         material = surfDesc.material,
                         //surfaceDataBarcode = new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
-                        surfaceDataBarcode = surfDesc.surfaceDataCard ? surfDesc.surfaceDataCard.Barcode : new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
+                        surfaceDataBarcode = surfDesc.surfaceDataCard != null ? surfDesc.surfaceDataCard.Barcode : new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
                         axis = axis,
                         axisIndex = axisPos
-                    };
+                    }; 
 
                     bool normal = scale.y >= scale.x;
 

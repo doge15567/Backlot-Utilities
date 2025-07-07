@@ -40,13 +40,13 @@ namespace EvroDev.BacklotUtilities.Voxels
                 UpdateVoxelMaterials((Material)evt.newValue);
             });
 
-            ObjectField surfaceData = new ObjectField("Surface Data");
-            surfaceData.objectType = typeof(SurfaceDataCard);
-            surfaceData.allowSceneObjects = false;
-            surfaceData.value = (SurfaceDataCard)serializedObject.FindProperty("surfaceData").objectReferenceValue;
-            surfaceData.RegisterValueChangedCallback(evt =>
+
+            var surfaceData = new PropertyField(serializedObject.FindProperty("surfaceData"));
+            surfaceData.RegisterValueChangeCallback(evt =>
             {
-                UpdateVoxelSurface((SurfaceDataCard)evt.newValue);
+                //Debug.Log("H", evt.changedProperty.serializedObject.targetObject);
+                serializedObject.ApplyModifiedProperties(); // After changing the property, this callback gets called every ~.25 seconds the face stays selected.
+                UpdateVoxelSurface(((SelectableFace)evt.changedProperty.serializedObject.targetObject).surfaceData);
             });
 
             Toggle removeButton = new Toggle("Is Empty");
@@ -101,7 +101,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             }
         }
 
-        private static void UpdateVoxelSurface(SurfaceDataCard newSurface)
+        private static void UpdateVoxelSurface(DataCardReference<SurfaceDataCard> newSurface)
         {
             GameObject[] voxels = Selection.gameObjects;
             foreach (GameObject voxel in voxels)
