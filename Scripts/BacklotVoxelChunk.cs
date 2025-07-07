@@ -779,6 +779,7 @@ namespace EvroDev.BacklotUtilities.Voxels
         private Material[] _materials = new Material[6];
         [SerializeField]
         private byte _overrideFacesByte = new();
+        [SerializeField]
         private DataCardReference<SurfaceDataCard>[] faceSurfaces = new DataCardReference<SurfaceDataCard>[6];
         //private bool[] _overrideFaces = new bool[6];
 

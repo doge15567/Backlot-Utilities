@@ -29,7 +29,7 @@ namespace EvroDev.BacklotUtilities.Voxels
         public FaceDirection FaceDirection;
         public Material material;
         //public string surfaceData = "SLZ.Backlot.SurfaceDataCard.Concrete";
-        public DataCardReference<SurfaceDataCard> surfaceData = new("SLZ.Backlot.SurfaceDataCard.Concrete");
+        public DataCardReference<SurfaceDataCard> surfaceData;
         public bool IsEmpty = false;
         public MeshRenderer _renderer;
         public MeshFilter _filter;
@@ -241,11 +241,19 @@ namespace EvroDev.BacklotUtilities.Voxels
 
             var surfData = voxel.GetSurface(direction);
             if (surfData != null && surfData.IsValid())
+            {
+                //Debug.Log("Was Valid DCR<SD> in CTOR");
                 outpt.surfaceData = surfData;
+            }
             else
-                voxel.SetSurface(direction, outpt.surfaceData);
+            {
+                //Debug.Log("Wasn't Valid DCR<SD> in CTOR");
+                var neew = new DataCardReference<SurfaceDataCard>("SLZ.Backlot.SurfaceDataCard.Concrete");
+                voxel.SetSurface(direction, neew);
+                outpt.surfaceData = neew;
+            }
 
-                outpt.chunk = chunk;
+            outpt.chunk = chunk;
 
             outpt.OnDrawGizmos();
 

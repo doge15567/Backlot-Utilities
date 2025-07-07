@@ -44,9 +44,8 @@ namespace EvroDev.BacklotUtilities.Voxels
             var surfaceData = new PropertyField(serializedObject.FindProperty("surfaceData"));
             surfaceData.RegisterValueChangeCallback(evt =>
             {
-                //Debug.Log("H", evt.changedProperty.serializedObject.targetObject);
-                serializedObject.ApplyModifiedProperties(); // After changing the property, this callback gets called every ~.25 seconds the face stays selected.
                 UpdateVoxelSurface(((SelectableFace)evt.changedProperty.serializedObject.targetObject).surfaceData);
+                //serializedObject.ApplyModifiedProperties();
             });
 
             Toggle removeButton = new Toggle("Is Empty");
