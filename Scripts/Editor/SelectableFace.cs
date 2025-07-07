@@ -28,7 +28,8 @@ namespace EvroDev.BacklotUtilities.Voxels
         public Vector3Int voxelPosition;
         public FaceDirection FaceDirection;
         public Material material;
-        public string surfaceData = "SLZ.Backlot.SurfaceDataCard.Concrete";
+        //public string surfaceData = "SLZ.Backlot.SurfaceDataCard.Concrete";
+        public DataCardReference<SurfaceDataCard> surfaceData = new("SLZ.Backlot.SurfaceDataCard.Concrete");
         public bool IsEmpty = false;
         public MeshRenderer _renderer;
         public MeshFilter _filter;
@@ -240,7 +241,7 @@ namespace EvroDev.BacklotUtilities.Voxels
 
 
             if (voxel.GetSurface(direction) != null)
-                outpt.surfaceData = voxel.GetSurface(direction).Barcode.ID;
+                outpt.surfaceData = voxel.GetSurface(direction);
 
             outpt.chunk = chunk;
 

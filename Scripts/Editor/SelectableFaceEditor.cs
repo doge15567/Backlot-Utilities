@@ -40,11 +40,13 @@ namespace EvroDev.BacklotUtilities.Voxels
                 UpdateVoxelMaterials((Material)evt.newValue);
             });
 
-            TextField surfaceData = new TextField("Surface Data");
-            surfaceData.value = serializedObject.FindProperty("surfaceData").stringValue;
-            surfaceData.RegisterValueChangedCallback(evt =>
+
+            var surfaceData = new PropertyField(serializedObject.FindProperty("surfaceData"));
+            surfaceData.RegisterValueChangeCallback(evt =>
             {
-                UpdateVoxelSurface(new DataCardReference<SurfaceDataCard>(evt.newValue));
+                //Debug.Log("H", evt.changedProperty.serializedObject.targetObject);
+                serializedObject.ApplyModifiedProperties(); // After changing the property, this callback gets called every ~.25 seconds the face stays selected.
+                UpdateVoxelSurface(((SelectableFace)evt.changedProperty.serializedObject.targetObject).surfaceData);
             });
 
             Toggle removeButton = new Toggle("Is Empty");
@@ -107,7 +109,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 SelectableFace face;
                 if (voxel.TryGetComponent<SelectableFace>(out face))
                 {
-                    face.surfaceData = newSurface.Barcode.ID;
+                    face.surfaceData = newSurface;
                     face.chunk.GetVoxel(face.voxelPosition).SetSurface(face.FaceDirection, newSurface);
                     face.chunk.isDirty = true;
                     EditorUtility.SetDirty(face);
