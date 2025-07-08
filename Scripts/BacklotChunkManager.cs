@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using EvroDev.BacklotUtilities.Extensions;
+using SLZ.Marrow.Warehouse;
 using System;
 using System.Collections.Generic;
 using UnityEditor;
@@ -16,8 +17,10 @@ namespace EvroDev.BacklotUtilities.Voxels
     public class BacklotChunkManager : MonoBehaviour
     {
         public int ChunkSize = 32;
-        public List<PosToChunk> chunks = new List<PosToChunk>();
-
+        public List<PosToChunk> chunks = new List<PosToChunk>() ;
+        [SerializeField]
+        public StringCache surfaceDataCache = new() { {0, "SLZ.Backlot.SurfaceDataCard.Concrete" } };
+        
         public VisualizationMode visualizationMode = VisualizationMode.Gizmos;
 
         public void GenerateChangedChunks()
@@ -208,7 +211,8 @@ namespace EvroDev.BacklotUtilities.Voxels
             var chunk = CreateNewChunk(Vector3Int.zero);
             SetVoxel(chunk, Vector3Int.zero, new Voxel()
             {
-                IsEmpty = false
+                IsEmpty = false,
+                chunk = chunk
             });
         }
     }

@@ -5,6 +5,9 @@ using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 using SLZ.MarrowEditor;
 using SLZ.Marrow.Warehouse;
+using System;
+using Object = UnityEngine.Object;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
 
 namespace EvroDev.BacklotUtilities.Voxels
 {
@@ -47,6 +50,11 @@ namespace EvroDev.BacklotUtilities.Voxels
                 //Debug.Log("H", evt.changedProperty.serializedObject.targetObject);
                 serializedObject.ApplyModifiedProperties(); // After changing the property, this callback gets called every ~.25 seconds the face stays selected.
                 UpdateVoxelSurface(((SelectableFace)evt.changedProperty.serializedObject.targetObject).surfaceData);
+<<<<<<< Updated upstream
+=======
+                //serializedObject.ApplyModifiedProperties();
+                //Selection.objects = Array.Empty<Object>();
+>>>>>>> Stashed changes
             });
 
             Toggle removeButton = new Toggle("Is Empty");
@@ -110,6 +118,10 @@ namespace EvroDev.BacklotUtilities.Voxels
                 if (voxel.TryGetComponent<SelectableFace>(out face))
                 {
                     face.surfaceData = newSurface;
+                    //foreach (var item in face.chunk.manager.surfaceDataCache)
+                    //{
+                    //    Debug.Log($"Iterate list -1: {item}");
+                    //}
                     face.chunk.GetVoxel(face.voxelPosition).SetSurface(face.FaceDirection, newSurface);
                     face.chunk.isDirty = true;
                     EditorUtility.SetDirty(face);

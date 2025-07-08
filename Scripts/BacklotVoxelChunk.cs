@@ -7,6 +7,11 @@ using UnityEngine.UIElements;
 using EvroDev.BacklotUtilities.Extensions;
 using SLZ.Marrow.Warehouse;
 using SLZ.Marrow;
+using System;
+using Object = UnityEngine.Object;
+
+
+
 
 
 
@@ -22,7 +27,7 @@ namespace EvroDev.BacklotUtilities.Voxels
     public struct SurfaceDescription
     {
         public Material material;
-        public string surfaceDataCard;
+        public DataCardReference<SurfaceDataCard> surfaceDataCard;
     }
 
     public class BacklotVoxelChunk : MonoBehaviour
@@ -42,6 +47,8 @@ namespace EvroDev.BacklotUtilities.Voxels
         [HideInInspector]
         public bool isDirty = false;
 
+        
+
         public Voxel GetVoxel(Vector3Int position)
         {
             if (position.InBounds(ChunkSize)) return SafeSampleVoxel(position.x, position.y, position.z);
@@ -60,26 +67,31 @@ namespace EvroDev.BacklotUtilities.Voxels
             {
                 return new Voxel()
                 {
-                    IsEmpty = true
+                    IsEmpty = true,
+                    chunk = this
                 };
             }
             if (y < 0 || y >= ChunkSize)
             {
                 return new Voxel()
                 {
-                    IsEmpty = true
+                    IsEmpty = true,
+                    chunk = this
                 };
             }
             if (z < 0 || z >= ChunkSize)
             {
                 return new Voxel()
                 {
-                    IsEmpty = true
+                    IsEmpty = true,
+                    chunk = this
                 };
             }
 
             int index = x + ChunkSize * (y + ChunkSize * z);
-            return voxels[index];
+            var voxel = voxels[index];
+            voxel.chunk = this;
+            return voxel;
         }
 
 
@@ -122,7 +134,8 @@ namespace EvroDev.BacklotUtilities.Voxels
                         int index = x + ChunkSize * (y + ChunkSize * z);
                         voxels[index] = new Voxel()
                         {
-                            IsEmpty = true
+                            IsEmpty = true,
+                            chunk = this
                         };
                         isDirty = true;
                     }
@@ -394,7 +407,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                             SurfaceDescription surfaceDescription = new SurfaceDescription()
                             {
                                 material = faceMat,
-                                surfaceDataCard = currentVoxel.GetSurface((FaceDirection)facingDirection).Barcode.ID
+                                surfaceDataCard = currentVoxel.GetSurface((FaceDirection)facingDirection)
                             };
 
                             // WHAT THE FUCK :fireEmoji:
@@ -439,7 +452,7 @@ namespace EvroDev.BacklotUtilities.Voxels
 
                             // now FINALLY greedymesh it
                             Debug.Log($"Axis: {axis_plane}\nAxis Pos: {axisPos}\n\"Axis plane int: {plane[0]}");
-                            var generatedGrids = GreedyGridwall.GreedTheGrid(plane, surfaceDescription, (FaceDirection)axis, axisPos);
+                            var generatedGrids = GreedyGridwall.GreedTheGrid(plane, surfaceDescription, (FaceDirection)axis, axisPos, this);
                             backlotGenResults.AddRange(generatedGrids);
                         }
                     }
@@ -567,6 +580,7 @@ namespace EvroDev.BacklotUtilities.Voxels
                 {
                     IsEmpty = false,
                     type = VoxelType.Wall,
+                    chunk = this
                 };
                 newVox.SetMaterial(face.FaceDirection, face.material);
                 SetVoxel(newFace.x, newFace.y, newFace.z, newVox);
@@ -770,6 +784,9 @@ namespace EvroDev.BacklotUtilities.Voxels
     }
 
     [System.Serializable]
+    public class StringCache : SerializableDictionary<int, string> { }
+
+    [System.Serializable]
     public class Voxel
     {
         public bool IsEmpty = false;
@@ -779,7 +796,15 @@ namespace EvroDev.BacklotUtilities.Voxels
         private Material[] _materials = new Material[6];
         [SerializeField]
         private byte _overrideFacesByte = new();
+<<<<<<< Updated upstream
         private DataCardReference<SurfaceDataCard>[] faceSurfaces = new DataCardReference<SurfaceDataCard>[6];
+=======
+        [SerializeField]
+        private int[] faceSurfaces = new int[6] { 0,0,0,0,0,0 };
+        [SerializeField]
+        public BacklotVoxelChunk chunk;
+        //private DataCardReference<SurfaceDataCard>[] faceSurfaces = new DataCardReference<SurfaceDataCard>[6];
+>>>>>>> Stashed changes
         //private bool[] _overrideFaces = new bool[6];
 
         public void SetOverrideFace(FaceDirection dir, bool enabled)
@@ -816,12 +841,29 @@ namespace EvroDev.BacklotUtilities.Voxels
 
         public void SetSurface(FaceDirection dir, DataCardReference<SurfaceDataCard> surface)
         {
-            faceSurfaces[(int)dir] = surface;
+            // Check if this card has be cached already
+            foreach (var item in chunk.manager.surfaceDataCache)
+            {
+                if (item.Value == surface.Barcode.ID)
+                {
+                    faceSurfaces[(int)dir] = item.Key;
+                    return;
+                }
+            }
+            var key = UnityEngine.Random.Range(int.MinValue,int.MaxValue);
+            var value = surface.Barcode.ID;
+            chunk.manager.surfaceDataCache.Add(key, value);
+            faceSurfaces[(int)dir] = key;
         }
         public DataCardReference<SurfaceDataCard> GetSurface(FaceDirection dir)
         {
-            return faceSurfaces[(int)dir];
+            if (chunk.manager.surfaceDataCache.ContainsKey(faceSurfaces[(int)dir]))
+                return new(chunk.manager.surfaceDataCache[faceSurfaces[(int)dir]]);
+            else
+                return new("SLZ.Backlot.SurfaceDataCard.Concrete");
+
         }
+
     }
 
 
@@ -894,7 +936,7 @@ namespace EvroDev.BacklotUtilities.Voxels
             return ValidLengths[ValidLengths.Count - 1];
         }
 
-        public static List<ResultingBacklot> GreedTheGrid(uint[] data, SurfaceDescription surfDesc, FaceDirection axis, int axisPos)
+        public static List<ResultingBacklot> GreedTheGrid(uint[] data, SurfaceDescription surfDesc, FaceDirection axis, int axisPos, BacklotVoxelChunk chunk)
         {
             List<ResultingBacklot> outpt = new List<ResultingBacklot>();
             for (int x = 0; x < data.Length; x++)
@@ -981,13 +1023,15 @@ namespace EvroDev.BacklotUtilities.Voxels
 
                     Vector2 scale = new Vector2(w, height);
 
+                    var surfaceDataCard = surfDesc.surfaceDataCard;
+
                     var backlot = new ResultingBacklot()
                     {
                         planePos = new Vector2(x, y) + (scale / 2),
                         scale = scale,
                         material = surfDesc.material,
                         //surfaceDataBarcode = new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
-                        surfaceDataBarcode = surfDesc.surfaceDataCard != null ? new Barcode(surfDesc.surfaceDataCard) : new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
+                        surfaceDataBarcode = surfaceDataCard != null ? surfaceDataCard.Barcode : new Barcode("SLZ.Backlot.SurfaceDataCard.Concrete"),
                         axis = axis,
                         axisIndex = axisPos
                     }; 
